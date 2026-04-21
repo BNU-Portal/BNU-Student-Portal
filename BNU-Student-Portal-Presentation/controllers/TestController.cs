@@ -6,5 +6,14 @@ namespace BNU_Student_Portal_Presentation.Controllers
     [Route("api/[controller]")]
     public class TestController : ControllerBase
     {
+
+        [HttpGet]
+
+        public string Get()
+        {
+            return "Hello World!";
+        }
+
+
     }
 }
