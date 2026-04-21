@@ -1,13 +1,15 @@
 using BNU_Student_Portal_Persistence.Data.DbContext;
 using BNU_Student_Portal_Persistence.DI;
+using BNU_Student_Portal_Presentation;
 using BNU_Student_Portal_Services.FluentValidationMiddleWare;
-using Microsoft.AspNetCore.Diagnostics;
+using BNU_Student_Portal_Web.CustomMiddlewares;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddApplicationPart(typeof(PresentationAssemblyMarker).Assembly);
 
 #region OpenAPI / Scalar
 builder.Services.AddOpenApi();
@@ -16,7 +18,7 @@ builder.Services.AddOpenApi();
 #region Dependency Injection
 
 #region DB
-// NOTE: Make sure to add the matching EF Core provider NuGet package to YourAPP-Persistence.csproj
+// NOTE: Make sure to add the matching EF Core provider NuGet package to BNU-Student-Portal-Persistence.csproj
 // e.g. Microsoft.EntityFrameworkCore.SqlServer  --> UseSqlServer
 //      Npgsql.EntityFrameworkCore.PostgreSQL    --> UseNpgsql
 builder.Services.AddDbContext<BNU_Student_Portal_DbContext>(options =>
@@ -35,7 +37,7 @@ builder.Services.AddPersistenceServicesRegistration();
 
 var app = builder.Build();
 
-app.UseMiddleware<BNU_Student_Portal_Web.CustomMiddlewares.ExceptionHandlerMiddleware>();
+app.UseMiddleware<ExceptionHandlerMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {
