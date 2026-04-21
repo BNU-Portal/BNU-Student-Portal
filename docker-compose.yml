@@ -1,0 +1,38 @@
+version: '3.9'
+
+services:
+  api:
+    image: yourapp-api
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: yourapp-api
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=db;Database=YourAppDb;User Id=sa;Password=Your_password123;TrustServerCertificate=True
+    depends_on:
+      - db
+    networks:
+      - yourapp-network
+
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: yourapp-db
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=Your_password123
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqldata:/var/opt/mssql
+    networks:
+      - yourapp-network
+
+volumes:
+  sqldata:
+
+networks:
+  yourapp-network:
+    driver: bridge

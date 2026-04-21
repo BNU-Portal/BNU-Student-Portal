@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/Application-Core-Layer/">
+    <Project Path="YourAPP-Domain/YourAPP-Domain.csproj" Id="e0d2c318-119f-4bbc-935e-5091be911c00" />
+    <Project Path="YourAPP-Services-Implementation/YourAPP-Services-Abstraction.csproj" Id="80e20074-6883-490c-b56f-fb707d608c44" />
+    <Project Path="YourAPP-Services/YourAPP-Services.csproj" Id="06e009cb-4c30-4958-b75d-d101c00010a9" />
+  </Folder>
+  <Folder Name="/Infrastructure-Layer/">
+    <Project Path="YourAPP-Persistence/YourAPP-Persistence.csproj" Id="09fe6a37-c840-4bcb-a060-b4a6a60ccd36" />
+  </Folder>
+  <Folder Name="/Presentation-Layer/">
+    <Project Path="YourAPP-Presentation/YourAPP-Presentation.csproj" Id="6276054c-b6ba-424d-94c3-991ea7ce11f4" />
+    <Project Path="YourAPP-Web/YourAPP-Web.csproj" Id="83bd3c02-74f0-4c50-968b-342c78b89f10" />
+  </Folder>
+  <Project Path="YourAPP-Shared-Library/YourAPP-Shared-Library.csproj" Id="1b3fff76-419c-426a-8c9c-be31cd1aaf5f" />
+</Solution>
