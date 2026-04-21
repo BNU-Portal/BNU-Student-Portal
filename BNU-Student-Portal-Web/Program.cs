@@ -1,9 +1,9 @@
-using Microsoft.EntityFrameworkCore;
-using Scalar.AspNetCore;
 using BNU_Student_Portal_Persistence.Data.DbContext;
 using BNU_Student_Portal_Persistence.DI;
 using BNU_Student_Portal_Services.FluentValidationMiddleWare;
-using BNU_Student_Portal_Web.CustomMiddlewares;
+using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.EntityFrameworkCore;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,10 +16,10 @@ builder.Services.AddOpenApi();
 #region Dependency Injection
 
 #region DB
-// NOTE: Make sure to add the matching EF Core provider NuGet package to BNU-Student-Portal-Persistence.csproj
+// NOTE: Make sure to add the matching EF Core provider NuGet package to YourAPP-Persistence.csproj
 // e.g. Microsoft.EntityFrameworkCore.SqlServer  --> UseSqlServer
 //      Npgsql.EntityFrameworkCore.PostgreSQL    --> UseNpgsql
-builder.Services.AddDbContext<BNUStudentPortalDbContext>(options =>
+builder.Services.AddDbContext<BNU_Student_Portal_DbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 #endregion
 
@@ -39,8 +39,8 @@ app.UseMiddleware<ExceptionHandlerMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();            // serves -> /openapi/v1.json
-    app.MapScalarApiReference(); // UI -> /scalar/v1
+    app.MapOpenApi();            // serves → /openapi/v1.json
+    app.MapScalarApiReference(); // UI → /scalar/v1
 }
 
 app.UseHttpsRedirection();

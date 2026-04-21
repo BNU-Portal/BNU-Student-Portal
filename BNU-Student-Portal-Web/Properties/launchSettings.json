@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "BNU-Student-Portal-Web": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:62415;http://localhost:62416"
+    }
+  }
+}
