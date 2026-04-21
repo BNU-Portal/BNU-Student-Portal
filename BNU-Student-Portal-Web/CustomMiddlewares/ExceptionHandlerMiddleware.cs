@@ -2,7 +2,7 @@ using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using BNU_Student_Portal_Services.Exceptions;
 
-namespace YourAPP_Web.CustomMiddlewares;
+namespace BNU_Student_Portal_Web.CustomMiddlewares;
 
 public class ExceptionHandlerMiddleware(
     RequestDelegate next,

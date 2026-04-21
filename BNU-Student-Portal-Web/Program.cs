@@ -35,7 +35,7 @@ builder.Services.AddPersistenceServicesRegistration();
 
 var app = builder.Build();
 
-app.UseMiddleware<ExceptionHandlerMiddleware>();
+app.UseMiddleware<BNU_Student_Portal_Web.CustomMiddlewares.ExceptionHandlerMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {
