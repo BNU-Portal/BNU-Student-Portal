@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>BNU_Student_Portal_Web</RootNamespace>
+    <UserSecretsId>82bd043a-879d-4a06-a943-a3a2cae974d5</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.5" />
+    <PackageReference Include="Scalar.AspNetCore" Version="2.14.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BNU-Student-Portal-Persistence\BNU-Student-Portal-Persistence.csproj" />
+    <ProjectReference Include="..\BNU-Student-Portal-Presentation\BNU-Student-Portal-Presentation.csproj" />
+  </ItemGroup>
+
+</Project>

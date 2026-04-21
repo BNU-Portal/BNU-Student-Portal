@@ -2,24 +2,24 @@ version: '3.9'
 
 services:
   api:
-    image: yourapp-api
+    image: bnu-student-portal-api
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: yourapp-api
+    container_name: bnu-student-portal-api
     ports:
       - "8080:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Server=db;Database=YourAppDb;User Id=sa;Password=Your_password123;TrustServerCertificate=True
+      - ConnectionStrings__DefaultConnection=Server=db;Database=BNUStudentPortalDb;User Id=sa;Password=Your_password123;TrustServerCertificate=True
     depends_on:
       - db
     networks:
-      - yourapp-network
+      - bnu-student-portal-network
 
   db:
     image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: yourapp-db
+    container_name: bnu-student-portal-db
     environment:
       - ACCEPT_EULA=Y
       - SA_PASSWORD=Your_password123
@@ -28,11 +28,11 @@ services:
     volumes:
       - sqldata:/var/opt/mssql
     networks:
-      - yourapp-network
+      - bnu-student-portal-network
 
 volumes:
   sqldata:
 
 networks:
-  yourapp-network:
+  bnu-student-portal-network:
     driver: bridge

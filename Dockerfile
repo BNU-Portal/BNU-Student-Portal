@@ -3,28 +3,28 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Copy csproj files and restore as distinct layers
-COPY ["YourAPP-Web/YourAPP-Web.csproj", "YourAPP-Web/"]
-COPY ["YourAPP-Presentation/YourAPP-Presentation.csproj", "YourAPP-Presentation/"]
-COPY ["YourAPP-Persistence/YourAPP-Persistence.csproj", "YourAPP-Persistence/"]
-COPY ["YourAPP-Services-Implementation/YourAPP-Services-Abstraction.csproj", "YourAPP-Services-Implementation/"]
-COPY ["YourAPP-Services/YourAPP-Services.csproj", "YourAPP-Services/"]
-COPY ["YourAPP-Domain/YourAPP-Domain.csproj", "YourAPP-Domain/"]
-COPY ["YourAPP-Shared-Library/YourAPP-Shared-Library.csproj", "YourAPP-Shared-Library/"]
+COPY ["BNU-Student-Portal-Web/BNU-Student-Portal-Web.csproj", "BNU-Student-Portal-Web/"]
+COPY ["BNU-Student-Portal-Presentation/BNU-Student-Portal-Presentation.csproj", "BNU-Student-Portal-Presentation/"]
+COPY ["BNU-Student-Portal-Persistence/BNU-Student-Portal-Persistence.csproj", "BNU-Student-Portal-Persistence/"]
+COPY ["BNU-Student-Portal-Services-Implementation/BNU-Student-Portal-Services-Abstraction.csproj", "BNU-Student-Portal-Services-Implementation/"]
+COPY ["BNU-Student-Portal-Services/BNU-Student-Portal-Services.csproj", "BNU-Student-Portal-Services/"]
+COPY ["BNU-Student-Portal-Domain/BNU-Student-Portal-Domain.csproj", "BNU-Student-Portal-Domain/"]
+COPY ["BNU-Student-Portal-Shared-Library/BNU-Student-Portal-Shared-Library.csproj", "BNU-Student-Portal-Shared-Library/"]
 
-RUN dotnet restore "YourAPP-Web/YourAPP-Web.csproj"
+RUN dotnet restore "BNU-Student-Portal-Web/BNU-Student-Portal-Web.csproj"
 
 # Copy everything and build
 COPY . .
-WORKDIR "/src/YourAPP-Web"
-RUN dotnet build "YourAPP-Web.csproj" -c Release -o /app/build
+WORKDIR "/src/BNU-Student-Portal-Web"
+RUN dotnet build "BNU-Student-Portal-Web.csproj" -c Release -o /app/build
 
 # ---- Publish Stage ----
 FROM build AS publish
-RUN dotnet publish "YourAPP-Web.csproj" -c Release -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "BNU-Student-Portal-Web.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 # ---- Runtime Stage ----
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 EXPOSE 8080
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "YourAPP-Web.dll"]
+ENTRYPOINT ["dotnet", "BNU-Student-Portal-Web.dll"]
