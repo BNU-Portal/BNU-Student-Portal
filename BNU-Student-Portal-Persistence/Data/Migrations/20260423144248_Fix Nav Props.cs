@@ -7,7 +7,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace BNU_Student_Portal_Persistence.Data.Migrations
 {
     /// <inheritdoc />
-    public partial class init : Migration
+    public partial class FixNavProps : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -73,29 +73,6 @@ namespace BNU_Student_Portal_Persistence.Data.Migrations
                         name: "FK_AspNetRoleClaims_AspNetRoles_RoleId",
                         column: x => x.RoleId,
                         principalTable: "AspNetRoles",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "Addresses",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    City = table.Column<string>(type: "text", nullable: false),
-                    Street = table.Column<string>(type: "text", nullable: false),
-                    Country = table.Column<string>(type: "text", nullable: false),
-                    Apartment = table.Column<string>(type: "text", nullable: false),
-                    UserId = table.Column<string>(type: "text", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Addresses", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_Addresses_AspNetUsers_UserId",
-                        column: x => x.UserId,
-                        principalTable: "AspNetUsers",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -215,8 +192,8 @@ namespace BNU_Student_Portal_Persistence.Data.Migrations
                     Percentage = table.Column<decimal>(type: "numeric", nullable: false),
                     DegreeInNumbers = table.Column<decimal>(type: "numeric", nullable: false),
                     CertificateType = table.Column<byte>(type: "smallint", nullable: false),
-                    MilitaryCode = table.Column<string>(type: "text", nullable: false),
-                    MilitaryNumber = table.Column<string>(type: "text", nullable: false)
+                    MilitaryCode = table.Column<string>(type: "text", nullable: true),
+                    MilitaryNumber = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -254,9 +231,8 @@ namespace BNU_Student_Portal_Persistence.Data.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    UserId = table.Column<string>(type: "text", nullable: false),
-                    StudentId1 = table.Column<Guid>(type: "uuid", nullable: false),
-                    StudentId = table.Column<string>(type: "text", nullable: false),
+                    AppUserId = table.Column<string>(type: "text", nullable: false),
+                    StudentId = table.Column<Guid>(type: "uuid", nullable: false),
                     FathersJob = table.Column<string>(type: "text", nullable: false),
                     MothersJob = table.Column<string>(type: "text", nullable: false),
                     FatherName = table.Column<string>(type: "text", nullable: false),
@@ -270,18 +246,53 @@ namespace BNU_Student_Portal_Persistence.Data.Migrations
                 {
                     table.PrimaryKey("PK_Guardians", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_Guardians_AspNetUsers_UserId",
+                        name: "FK_Guardians_AspNetUsers_AppUserId",
+                        column: x => x.AppUserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_Guardians_Students_StudentId",
+                        column: x => x.StudentId,
+                        principalTable: "Students",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Addresses",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    City = table.Column<string>(type: "text", nullable: false),
+                    Street = table.Column<string>(type: "text", nullable: false),
+                    Country = table.Column<string>(type: "text", nullable: false),
+                    Apartment = table.Column<string>(type: "text", nullable: false),
+                    UserId = table.Column<string>(type: "text", nullable: false),
+                    GuardianId = table.Column<Guid>(type: "uuid", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Addresses", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Addresses_AspNetUsers_UserId",
                         column: x => x.UserId,
                         principalTable: "AspNetUsers",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_Guardians_Students_StudentId1",
-                        column: x => x.StudentId1,
-                        principalTable: "Students",
+                        name: "FK_Addresses_Guardians_GuardianId",
+                        column: x => x.GuardianId,
+                        principalTable: "Guardians",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Addresses_GuardianId",
+                table: "Addresses",
+                column: "GuardianId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Addresses_UserId",
@@ -326,14 +337,14 @@ namespace BNU_Student_Portal_Persistence.Data.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_Guardians_StudentId1",
+                name: "IX_Guardians_AppUserId",
                 table: "Guardians",
-                column: "StudentId1");
+                column: "AppUserId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Guardians_UserId",
+                name: "IX_Guardians_StudentId",
                 table: "Guardians",
-                column: "UserId");
+                column: "StudentId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Professors_AppUserId",
@@ -373,13 +384,13 @@ namespace BNU_Student_Portal_Persistence.Data.Migrations
                 name: "AspNetUserTokens");
 
             migrationBuilder.DropTable(
-                name: "Guardians");
-
-            migrationBuilder.DropTable(
                 name: "Professors");
 
             migrationBuilder.DropTable(
                 name: "TeachingAssistants");
+
+            migrationBuilder.DropTable(
+                name: "Guardians");
 
             migrationBuilder.DropTable(
                 name: "AspNetRoles");

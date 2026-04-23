@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace BNU_Student_Portal_Persistence.Data.Migrations
 {
     [DbContext(typeof(BNU_Student_Portal_DbContext))]
-    [Migration("20260423142206_init")]
-    partial class init
+    [Migration("20260423144248_Fix Nav Props")]
+    partial class FixNavProps
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -45,6 +45,9 @@ namespace BNU_Student_Portal_Persistence.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<Guid>("GuardianId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Street")
                         .IsRequired()
                         .HasColumnType("text");
@@ -54,6 +57,8 @@ namespace BNU_Student_Portal_Persistence.Data.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("GuardianId");
 
                     b.HasIndex("UserId");
 
@@ -149,6 +154,10 @@ namespace BNU_Student_Portal_Persistence.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("AppUserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("FatherName")
                         .IsRequired()
                         .HasColumnType("text");
@@ -179,22 +188,14 @@ namespace BNU_Student_Portal_Persistence.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("StudentId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("StudentId1")
+                    b.Property<Guid>("StudentId")
                         .HasColumnType("uuid");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("StudentId1");
+                    b.HasIndex("AppUserId");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("StudentId");
 
                     b.ToTable("Guardians");
                 });
@@ -244,11 +245,9 @@ namespace BNU_Student_Portal_Persistence.Data.Migrations
                         .HasColumnType("numeric");
 
                     b.Property<string>("MilitaryCode")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("MilitaryNumber")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<decimal>("Percentage")
@@ -420,32 +419,40 @@ namespace BNU_Student_Portal_Persistence.Data.Migrations
 
             modelBuilder.Entity("BNU_Student_Portal_Domain.Entities.Auth.Address", b =>
                 {
+                    b.HasOne("BNU_Student_Portal_Domain.Entities.Auth.Guardian", "Guardian")
+                        .WithMany()
+                        .HasForeignKey("GuardianId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("BNU_Student_Portal_Domain.Entities.Auth.AppUser", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Guardian");
 
                     b.Navigation("User");
                 });
 
             modelBuilder.Entity("BNU_Student_Portal_Domain.Entities.Auth.Guardian", b =>
                 {
+                    b.HasOne("BNU_Student_Portal_Domain.Entities.Auth.AppUser", "AppUser")
+                        .WithMany()
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("BNU_Student_Portal_Domain.Entities.Auth.Student", "Student")
                         .WithMany()
-                        .HasForeignKey("StudentId1")
+                        .HasForeignKey("StudentId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("BNU_Student_Portal_Domain.Entities.Auth.AppUser", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                    b.Navigation("AppUser");
 
                     b.Navigation("Student");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("BNU_Student_Portal_Domain.Entities.Auth.Professor", b =>
