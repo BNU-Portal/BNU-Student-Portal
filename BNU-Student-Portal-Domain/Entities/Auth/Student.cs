@@ -19,6 +19,8 @@
         public AppUser AppUser { get; set; } = default!;
 
         // Student-specific fields (moved from AppUser)
+
+        public string Name { get; set; } = default!;
         public DateOnly CertificateIssueDate { get; set; }
         public decimal Percentage { get; set; }
 
