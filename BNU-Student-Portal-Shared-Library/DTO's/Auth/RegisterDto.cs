@@ -17,10 +17,21 @@ namespace BNU_Student_Portal_Shared_Library.DTO_s.Auth
 
         public string MilitaryCode { get; set; }
         public string MilitaryNumber { get; set; }
-
+        [Required]
         public decimal Percentage { get; set; }
-
+        [Required]
         public decimal DegreeInNumbers { get; set; }
+        [Phone]
+        public string PhoneNumber { get; set; } = null!;
+        [Required]
+        public DateOnly DateOfBirth { get; set; }
+        [Required]
+        public string Nationality { get; set; }
+        [Required]
+        public string NationalId { get; set; } = null!;
+
+        [Required]
+        public string Gender { get; set; } = null!;
 
     }
 }

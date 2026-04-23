@@ -54,9 +54,15 @@ namespace BNU_Student_Portal_Services.Features.Authentication
             var user = new AppUser
             {
                 Email = registerDto.Email,
-                UserName = registerDto.Name,
-                PhoneNumber = registerDto.
+                Name = registerDto.Name,
+                PhoneNumber = registerDto.PhoneNumber,
+                DateOfBirth = registerDto.DateOfBirth,
+                Nationality = registerDto.Nationality,
+                CreatedAt = DateTime.UtcNow ,
+                NationalId = registerDto.NationalId,
             };
+
+
 
 
         }
