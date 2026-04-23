@@ -15,7 +15,7 @@ namespace BNU_Student_Portal_Services_Implementation
         Task<string> GenerateJWTTokenAsync(AppUser appUser);
 
 
-        Task<Result<RefreshTokenDto>> RefreshTokenAsync();
+        //Task<Result<RefreshTokenDto>> RefreshTokenAsync();
 
 
         Task<bool> CheckEmailAsync(string Email); //==> get it from the token 
