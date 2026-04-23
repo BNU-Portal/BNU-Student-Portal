@@ -11,7 +11,7 @@ namespace BNU_Student_Portal_Domain.Entities.Auth
 
 
         public Student Student { get; set; }
-        public string StudentId { get; set; }
+        public Guid StudentId { get; set; }
 
 
         public string FathersJob { get; set; } = default!;

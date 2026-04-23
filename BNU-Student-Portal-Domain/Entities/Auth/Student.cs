@@ -25,9 +25,9 @@
         public decimal DegreeInNumbers { get; set; }
         public CertificateType CertificateType { get; set; }
 
-        public string MilitaryCode { get; set; } 
+        public string? MilitaryCode { get; set; } 
 
-        public string MilitaryNumber { get; set; }
+        public string? MilitaryNumber { get; set; }
 
         
 
