@@ -19,7 +19,7 @@ namespace BNU_Student_Portal_Domain.Entities.Auth
 
 
         //navigational properties
-        public AppUser User { get; set; } = default!;
+        public Guardian User { get; set; } = default!;
         public string UserId { get; set; } = default!;
     }
 }

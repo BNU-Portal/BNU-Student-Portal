@@ -16,10 +16,9 @@
 
         //Relationship with AppUser
         public string AppUserId { get; set; } = default!; // FK to AppUser
-        public AppUser AppUser { get; set; } = default!;
+        public Guardian AppUser { get; set; } = default!;
 
         // Student-specific fields (moved from AppUser)
-        public string NationalId { get; set; } = default!;
         public DateOnly CertificateIssueDate { get; set; }
         public decimal Percentage { get; set; }
 

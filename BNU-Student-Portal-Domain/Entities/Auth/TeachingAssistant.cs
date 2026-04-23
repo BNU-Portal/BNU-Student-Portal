@@ -3,7 +3,7 @@
     public class TeachingAssistant
     {
         public string AppUserId { get; set; } = default!;
-        public AppUser AppUser { get; set; } = default!;
+        public Guardian AppUser { get; set; } = default!;
 
         // Professor-specific fields
         public string Department { get; set; } = default!;
