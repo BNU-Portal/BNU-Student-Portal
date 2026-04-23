@@ -6,8 +6,8 @@ namespace BNU_Student_Portal_Domain.Entities.Auth
 {
     public class Guardian : BaseEntity<Guid>
     {
-        public AppUser User { get; set; } = default!;
-        public string UserId { get; set; } = default!;
+        public string AppUserId { get; set; } = default!;
+        public AppUser AppUser { get; set; } = default!;
 
 
         public Student Student { get; set; }
