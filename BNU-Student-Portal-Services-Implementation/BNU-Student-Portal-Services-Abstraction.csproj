@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\BNU-Student-Portal-Domain\BNU-Student-Portal-Domain.csproj" />
     <ProjectReference Include="..\BNU-Student-Portal-Shared-Library\BNU-Student-Portal-Shared-Library.csproj" />
   </ItemGroup>
 
