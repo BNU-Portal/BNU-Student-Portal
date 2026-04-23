@@ -49,7 +49,7 @@ namespace BNU_Student_Portal_Services.Features.Authentication
             };
             return Result<LoginReturnDto>.Ok(loginReturnDto);
         }
-        public Task<Result> RegisterAsync(RegisterDto registerDto)
+        public Task<Result> RegisterAsync(RegisterStudentDto registerDto)
         {
             var user = new AppUser
             {

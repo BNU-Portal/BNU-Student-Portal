@@ -9,8 +9,9 @@ namespace BNU_Student_Portal_Services_Implementation
 
         public Task<Result<LoginReturnDto>> LoginAsync(LoginDto loginDto);
 
-        public Task<Result> RegisterAsync(RegisterDto registerDto);
-
+        Task<Result> RegisterStudentAsync(RegisterStudentDto dto); 
+        Task<Result> RegisterProfessorAsync(RegisterProfessorDto dto);
+        Task<Result> RegisterTAAsync(RegisterTADto dto);
 
         Task<string> GenerateJWTTokenAsync(AppUser appUser);
 
