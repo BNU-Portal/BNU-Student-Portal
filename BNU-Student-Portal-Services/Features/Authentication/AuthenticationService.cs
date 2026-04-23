@@ -15,56 +15,130 @@ using System.Text;
 
 namespace BNU_Student_Portal_Services.Features.Authentication
 {
-    /// <summary>
-    /// Handles all authentication logic for the BNU Student Portal.
-    ///
-    /// ═══════════════════════════════════════════════════════════════
-    /// OVERALL TOKEN FLOW
-    /// ═══════════════════════════════════════════════════════════════
-    ///
-    /// LOGIN FLOW:
-    /// ───────────
-    ///  1. Client sends email + password → LoginAsync()
-    ///  2. We verify the credentials against ASP.NET Identity.
-    ///  3. We call GenerateAccessTokenAsync() which:
-    ///       a. Creates a fresh jti = Guid.NewGuid() — the token's unique ID.
-    ///       b. Packs claims (userId, email, name, nationalId, roles, jti) into a JWT.
-    ///       c. Signs the JWT with HMAC-SHA256 using the secret key.
-    ///       d. Returns (accessTokenString, jti).
-    ///  4. We call GenerateRefreshToken() → 64 cryptographically random bytes → Base64 string.
-    ///  5. We call ComputeSha256Hash(rawRefreshToken) → hash string.
-    ///  6. We store a RefreshToken row in the DB:
-    ///       TokenHash = hash  (NEVER the raw token)
-    ///       JwtId     = jti   (links this row to the access token above)
-    ///       UserId    = user.Id
-    ///       ExpiresAt = now + 7 days
-    ///  7. We return { AccessToken = jwt, RefreshToken = rawToken } to the client.
-    ///     The raw token is sent once and never stored server-side.
-    ///
-    /// REFRESH FLOW:
-    /// ─────────────
-    ///  1. Client sends expired access token + raw refresh token → RefreshTokenAsync()
-    ///  2. GetPrincipalFromExpiredToken() validates the JWT signature/issuer/audience
-    ///     but IGNORES expiry (ValidateLifetime = false). Extracts userId + jti.
-    ///  3. We hash the incoming raw refresh token.
-    ///  4. We look up the DB row by hash.
-    ///  5. Security checks (ALL must pass):
-    ///       • Row exists in DB
-    ///       • Row.UserId == userId from access token claims
-    ///       • Row.JwtId  == jti from access token claims   ← THE KEY LINK
-    ///       • Row.IsActive (not used, not revoked, not expired)
-    ///  6. Rotation: mark old row UsedAt = RevokedAt = now (it is dead).
-    ///  7. Generate new token pair exactly like login (steps 3-6).
-    ///  8. Set old row's ReplacedByTokenHash = new row's hash (audit trail).
-    ///  9. Save everything and return new { AccessToken, RefreshToken }.
-    ///
-    /// REVOKE (LOGOUT) FLOW:
-    /// ──────────────────────
-    ///  1. Client sends raw refresh token → RevokeRefreshTokenAsync()
-    ///  2. We hash it, find the row, set RevokedAt = now.
-    ///  3. Token is permanently dead — cannot be used for refresh.
-    /// ═══════════════════════════════════════════════════════════════
-    /// </summary>
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AuthenticationService — Complete Authentication Logic
+    // ═══════════════════════════════════════════════════════════════════════════
+    //
+    // This service implements every auth operation: login, token refresh, logout,
+    // registration, and password management.
+    //
+    // ───────────────────────────────────────────────────────────────────────────
+    // HOW JWT + REFRESH TOKEN WORKS (the big picture)
+    // ───────────────────────────────────────────────────────────────────────────
+    //
+    //  An access token (JWT) is SHORT-LIVED (e.g. 60 min). This limits damage
+    //  if it is stolen — it expires soon anyway. But making the user re-login
+    //  every 60 minutes is terrible UX. The refresh token solves that:
+    //
+    //  • Access token  → short-lived JWT sent in every API request header.
+    //  • Refresh token → long-lived opaque secret (7 days) stored securely
+    //                    client-side. Used ONLY to get a new access token
+    //                    when the old one expires.
+    //
+    //  They are issued together as a pair. The jti claim inside the access
+    //  token is the hard link between the two — they are bound to each other.
+    //
+    // ───────────────────────────────────────────────────────────────────────────
+    // LOGIN FLOW  (LoginAsync)
+    // ───────────────────────────────────────────────────────────────────────────
+    //
+    //  CLIENT                          SERVER
+    //    │                               │
+    //    │── POST /auth/login ──────────►│
+    //    │   { email, password }         │
+    //    │                               │ 1. Find user by email
+    //    │                               │ 2. Verify password hash (Identity)
+    //    │                               │ 3. GenerateAccessTokenAsync(user)
+    //    │                               │      a. jti = Guid.NewGuid()  ← unique token fingerprint
+    //    │                               │      b. Build claims list:
+    //    │                               │           NameIdentifier = user.Id
+    //    │                               │           Email          = user.Email
+    //    │                               │           Name           = user.Name
+    //    │                               │           NationalId     = user.NationalId
+    //    │                               │           Role           = ["Student"] (from Identity)
+    //    │                               │           jti            = the Guid above
+    //    │                               │      c. Sign with HMAC-SHA256 + secret key
+    //    │                               │      d. Return (jwtString, jti)
+    //    │                               │ 4. GenerateRefreshToken()
+    //    │                               │      64 random bytes from OS entropy → Base64 string
+    //    │                               │      This is the raw token sent to the client.
+    //    │                               │ 5. ComputeSha256Hash(rawRefreshToken)
+    //    │                               │      Only the HASH is stored in DB, never the raw value.
+    //    │                               │ 6. INSERT RefreshToken row:
+    //    │                               │      TokenHash = sha256(rawToken)  ← DB-safe
+    //    │                               │      JwtId     = jti               ← links to access token
+    //    │                               │      UserId    = user.Id
+    //    │                               │      ExpiresAt = now + 7 days
+    //    │                               │      UsedAt    = null  (not yet used)
+    //    │                               │      RevokedAt = null  (not revoked)
+    //    │◄── 200 OK ────────────────────│
+    //    │   { accessToken, refreshToken }│
+    //    │   accessToken  = JWT string    │  Store in memory (never localStorage)
+    //    │   refreshToken = raw Base64    │  Store in HttpOnly cookie
+    //
+    // ───────────────────────────────────────────────────────────────────────────
+    // REFRESH FLOW  (RefreshTokenAsync)  — called when access token expires
+    // ───────────────────────────────────────────────────────────────────────────
+    //
+    //  CLIENT                          SERVER
+    //    │                               │
+    //    │── POST /auth/refresh ────────►│
+    //    │   { accessToken  (expired),   │
+    //    │     refreshToken (raw) }       │
+    //    │                               │ 1. GetPrincipalFromExpiredToken(accessToken)
+    //    │                               │      Validates JWT signature ✓  (tamper check)
+    //    │                               │      Validates issuer/audience ✓
+    //    │                               │      Ignores expiry            ✓  (intentional!)
+    //    │                               │      Extracts: userId, jti
+    //    │                               │
+    //    │                               │ 2. incomingHash = SHA256(rawRefreshToken)
+    //    │                               │
+    //    │                               │ 3. SELECT * FROM RefreshTokens
+    //    │                               │      WHERE TokenHash = incomingHash
+    //    │                               │
+    //    │                               │ 4. Security checks (ALL must pass):
+    //    │                               │      ✓ row exists
+    //    │                               │      ✓ row.UserId == userId from JWT claims
+    //    │                               │      ✓ row.JwtId  == jti   from JWT claims
+    //    │                               │           ↑ This is the key jti link:
+    //    │                               │             proves access token + refresh token
+    //    │                               │             were issued as a pair.
+    //    │                               │      ✓ row.IsActive:
+    //    │                               │             UsedAt   == null  (not already rotated)
+    //    │                               │             RevokedAt == null (not explicitly revoked)
+    //    │                               │             ExpiresAt > now   (not expired)
+    //    │                               │
+    //    │                               │ 5. ROTATE old token (mark it dead):
+    //    │                               │      row.UsedAt    = now
+    //    │                               │      row.RevokedAt = now
+    //    │                               │
+    //    │                               │ 6. Generate brand new token pair
+    //    │                               │      (same as login steps 3-5)
+    //    │                               │
+    //    │                               │ 7. row.ReplacedByTokenHash = newHash
+    //    │                               │      (audit trail: old row → new row)
+    //    │                               │
+    //    │                               │ 8. INSERT new RefreshToken row
+    //    │                               │
+    //    │◄── 200 OK ────────────────────│
+    //    │   { accessToken, refreshToken }│  Client replaces both stored tokens
+    //
+    //  REPLAY ATTACK SCENARIO:
+    //    Attacker steals refresh token. Legitimate user refreshes first.
+    //    Old row now has UsedAt != null → IsActive = false.
+    //    Attacker tries to use it → check fails → 401 Unauthorized.
+    //
+    // ───────────────────────────────────────────────────────────────────────────
+    // REVOKE / LOGOUT FLOW  (RevokeRefreshTokenAsync)
+    // ───────────────────────────────────────────────────────────────────────────
+    //
+    //    1. Client sends raw refresh token.
+    //    2. Hash it, find the DB row.
+    //    3. Set row.RevokedAt = now → IsActive = false permanently.
+    //    4. Session is dead. Next refresh attempt → 401.
+    //
+    // ═══════════════════════════════════════════════════════════════════════════
+
     public class AuthenticationService(
         UserManager<AppUser> userManager,
         RoleManager<IdentityRole> roleManager,
@@ -74,30 +148,31 @@ namespace BNU_Student_Portal_Services.Features.Authentication
         IHttpContextAccessor httpContextAccessor)
         : IAuthenticationService
     {
-        // ════════════════════════════════════════════════════════════════════
+        // ═══════════════════════════════════════════════════════════════════════
         // PRIVATE HELPERS
-        // ════════════════════════════════════════════════════════════════════
+        // ═══════════════════════════════════════════════════════════════════════
 
         /// <summary>
-        /// Converts a list of ASP.NET Identity errors into a failed Result.
-        /// Called after userManager.CreateAsync() returns errors.
-        /// Each IdentityError has a Code (e.g. "DuplicateUserName") and Description.
-        /// We wrap them as Validation errors so the API can return them as 400.
+        /// Wraps a list of ASP.NET Identity errors into a failed Result.
+        /// Called whenever userManager.CreateAsync() or ResetPasswordAsync() fails.
+        /// Each IdentityError has a Code + Description which we surface as
+        /// Validation errors so the API layer can return HTTP 400 with details.
         /// </summary>
         private static Result IdentityFailed(IEnumerable<IdentityError> errors)
             => Result<object>.Fail(
                 errors.Select(e => Error.Validation(e.Code, e.Description)).ToList());
 
         /// <summary>
-        /// Constructs a new AppUser entity from the shared registration fields.
-        /// Used by all three Register methods to avoid duplicating the mapping logic.
-        /// Password is NOT set here — it is set by userManager.CreateAsync(user, password).
+        /// Builds a new AppUser entity from common registration fields.
+        /// Shared by RegisterStudentAsync, RegisterProfessorAsync, RegisterTAAsync
+        /// to avoid repeating the same mapping logic three times.
+        /// Password is NOT set here — Identity sets it via CreateAsync(user, password).
         /// </summary>
-        private AppUser BuildAppUser(
+        private static AppUser BuildAppUser(
             string name, string email, string nationalId,
             string nationality, DateOnly dob, string gender, string? phone) => new()
         {
-            UserName    = email,        // Identity uses email as username
+            UserName    = email,
             Email       = email,
             Name        = name,
             NationalId  = nationalId,
@@ -108,113 +183,127 @@ namespace BNU_Student_Portal_Services.Features.Authentication
             CreatedAt   = DateTime.UtcNow
         };
 
-        // ── Token Helpers ─────────────────────────────────────────────────────
+        // ───────────────────────────────────────────────────────────────────────
+        // TOKEN GENERATION HELPERS
+        // ───────────────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Generates a cryptographically secure random refresh token.
+        /// Generates a cryptographically secure opaque refresh token.
+        ///
+        /// HOW IT WORKS:
+        ///   RandomNumberGenerator fills a 64-byte array from the OS entropy pool
+        ///   (e.g. /dev/urandom on Linux, BCryptGenRandom on Windows).
+        ///   This is TRUE randomness — not seeded, not predictable.
+        ///   We then Base64-encode the bytes into an 88-character printable string
+        ///   safe to transmit in JSON or HTTP headers.
         ///
         /// WHY 64 BYTES?
-        /// RandomNumberGenerator gives us true randomness from the OS entropy
-        /// pool — not predictable like System.Random or Math.Random.
-        /// 64 bytes = 512 bits of entropy = practically impossible to guess
-        /// even with a trillion guesses per second for millions of years.
+        ///   64 bytes = 512 bits of entropy.
+        ///   At 10^12 guesses/second it would take ~10^139 years to brute-force.
+        ///   It is physically impossible to guess.
         ///
-        /// WHY BASE64?
-        /// The 64 random bytes are binary data. Base64 converts them to a
-        /// safe printable string (88 chars) that can travel in JSON/HTTP headers.
-        ///
-        /// The raw token is returned to the client ONCE and never stored as-is.
+        /// THIS VALUE IS SENT TO THE CLIENT ONCE AND NEVER STORED RAW.
+        /// We immediately hash it before writing to the DB.
         /// </summary>
         private static string GenerateRefreshToken()
         {
             var bytes = new byte[64];
-            using var rng = RandomNumberGenerator.Create();
-            rng.GetBytes(bytes);                       // fill with OS-level randomness
-            return Convert.ToBase64String(bytes);      // convert to safe printable string
+            RandomNumberGenerator.Fill(bytes);        // OS-level true randomness
+            return Convert.ToBase64String(bytes);     // → safe 88-char Base64 string
         }
 
         /// <summary>
-        /// Computes the SHA-256 hash of a string and returns it as an uppercase hex string.
+        /// Returns the SHA-256 hash of a string as an uppercase hex string.
         ///
-        /// WHY HASH THE REFRESH TOKEN?
-        /// Refresh tokens are sensitive credentials — like passwords.
-        /// If the DB is compromised and raw tokens are stored, an attacker
-        /// can immediately hijack all active sessions.
-        /// By storing only the hash:
-        ///   • DB leak → attacker gets hashes, not usable tokens.
-        ///   • On each refresh request, we hash the incoming token and
-        ///     compare to the stored hash — never needing the raw value.
+        /// WHY HASH THE REFRESH TOKEN BEFORE STORING?
+        ///   Refresh tokens are credentials — equivalent to passwords.
+        ///   If the DB is leaked and raw tokens were stored, every session
+        ///   could be hijacked immediately.
+        ///   By storing only the hash:
+        ///     - DB leak → attacker gets useless hashes.
+        ///     - On each request we hash the incoming token and compare hashes.
+        ///     - The raw token never touches the DB.
         ///
-        /// WHY SHA-256 AND NOT BCRYPT?
-        /// Bcrypt is slow by design to protect against brute-force on
-        /// WEAK user-chosen passwords. Our refresh token is 64 random bytes
-        /// (512 bits of entropy) — impossible to brute-force regardless.
-        /// SHA-256 is fast enough for lookup and secure enough for this use case.
+        /// WHY SHA-256 AND NOT BCRYPT/ARGON2?
+        ///   Bcrypt/Argon2 are slow BY DESIGN to prevent brute-force on WEAK
+        ///   user-chosen passwords (e.g. "password123").
+        ///   Our refresh token has 512 bits of entropy — brute-force is impossible
+        ///   regardless of hash speed. SHA-256 is fast and collision-resistant.
         /// </summary>
         private static string ComputeSha256Hash(string value)
         {
-            var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(value));
-            return Convert.ToHexString(bytes);  // e.g. "3A9F2B..."
+            var hash = SHA256.HashData(Encoding.UTF8.GetBytes(value));
+            return Convert.ToHexString(hash); // e.g. "3A9FBC2D..."
         }
 
         /// <summary>
         /// Generates a signed JWT access token for the given user.
-        /// Returns BOTH the serialized token string AND the jti (JWT unique ID).
+        /// Returns BOTH the serialized JWT string AND the jti claim value.
         ///
-        /// THE JTI CLAIM:
-        /// jti = "JWT ID" — a Guid embedded in the token payload.
-        /// It is unique per token. When we store a RefreshToken row in the DB,
-        /// we save this jti as RefreshToken.JwtId.
-        /// On refresh: we read jti from the (expired) access token and verify
-        /// it matches the DB row — confirming the two tokens were issued together.
+        /// ┌─────────────────────────────────────────────────────────────┐
+        /// │  WHAT IS jti?                                               │
+        /// │  jti = "JWT ID" — a Guid baked into the token payload.      │
+        /// │  Every token gets a brand new unique Guid.                  │
+        /// │                                                             │
+        /// │  When we store the refresh token row in the DB, we also     │
+        /// │  store this jti as RefreshToken.JwtId.                      │
+        /// │                                                             │
+        /// │  On refresh: we read jti from the expired access token and  │
+        /// │  verify it equals the DB row's JwtId.                       │
+        /// │  This PROVES the two tokens were issued together as a pair. │
+        /// │  It prevents mixing tokens from different sessions.         │
+        /// └─────────────────────────────────────────────────────────────┘
         ///
-        /// WHAT GOES INTO THE JWT PAYLOAD (claims):
-        ///   • NameIdentifier = user.Id        → used to find the user server-side
-        ///   • Email          = user.Email     → displayed in UI / used in password reset
-        ///   • Name           = user.Name      → display name
-        ///   • NationalId     = custom claim   → used in student-specific operations
-        ///   • Role           = each role      → drives [Authorize(Roles = "...")]
-        ///   • Jti            = Guid           → unique token ID, links to refresh row
+        /// CLAIMS BAKED INTO THE JWT PAYLOAD:
+        ///   NameIdentifier  → user.Id         (finds the user server-side)
+        ///   Email           → user.Email      (shown in UI, used in password reset)
+        ///   Name            → user.Name       (display name)
+        ///   NationalId      → user.NationalId (BNU-specific claim)
+        ///   Role            → each role       (drives [Authorize(Roles="...")])
+        ///   Jti             → Guid            (unique token ID, links to refresh row)
         ///
-        /// ACCESS TOKEN LIFETIME:
-        /// Short — configured in JwtSettings:AccessTokenExpiryMinutes (typically 15-60 min).
-        /// Short lifetime limits damage if a token is stolen. The refresh token
-        /// (7-day lifetime, stored securely) is used to get a new one.
+        /// Claims are readable by anyone with the token. NEVER put secrets in claims.
+        ///
+        /// TOKEN LIFETIME:
+        ///   Configured via JwtSettings:AccessTokenExpiryMinutes in appsettings.json.
+        ///   Typically 15–60 minutes. Short lifetime = smaller blast radius if stolen.
         /// </summary>
         private async Task<(string accessToken, string jti)> GenerateAccessTokenAsync(AppUser user)
         {
-            // Read JWT config from appsettings.json under "JwtSettings"
-            var jwtSettings = config.GetSection("JwtSettings").Get<JwtSettings>()!
-                ?? throw new InvalidOperationException("JwtSettings not configured.");
+            // Load JWT config from appsettings.json → "JwtSettings" section
+            var jwtSettings = config.GetSection("JwtSettings").Get<JwtSettings>()
+                ?? throw new InvalidOperationException(
+                    "JwtSettings section is missing from appsettings.json.");
 
-            // Load the user's roles from Identity (e.g. ["Student"] or ["Professor"])
+            // Get all roles assigned to this user in ASP.NET Identity
             var roles = await userManager.GetRolesAsync(user);
 
-            // This Guid is the token's unique fingerprint.
-            // A new Guid is generated for EVERY token — no two tokens share the same jti.
+            // Generate a fresh unique ID for this specific token.
+            // No two tokens will ever share the same jti — it is the token's fingerprint.
             var jti = Guid.NewGuid().ToString();
 
-            // Build the claims list — these are the "fields" baked into the JWT payload.
-            // Anyone with the public key can READ these claims, so never put secrets here.
+            // Build the claims that will be embedded in the JWT payload.
+            // The payload is Base64-encoded (NOT encrypted) — anyone can decode it.
+            // NEVER put passwords, secrets, or sensitive data in claims.
             var claims = new List<Claim>
             {
-                new(ClaimTypes.NameIdentifier,   user.Id),          // user's DB primary key
-                new(ClaimTypes.Email,            user.Email!),      // user's email
-                new(ClaimTypes.Name,             user.Name),        // display name
-                new("NationalId",                user.NationalId),  // custom BNU claim
-                new(JwtRegisteredClaimNames.Jti, jti)               // unique token ID
+                new(ClaimTypes.NameIdentifier,   user.Id),         // primary key in AspNetUsers
+                new(ClaimTypes.Email,            user.Email!),     // user's email
+                new(ClaimTypes.Name,             user.Name),       // full display name
+                new("NationalId",                user.NationalId), // BNU custom claim
+                new(JwtRegisteredClaimNames.Jti, jti)              // ← THE TOKEN FINGERPRINT
             };
 
-            // Add one Role claim per role — e.g. ClaimTypes.Role = "Student"
-            // These are what [Authorize(Roles = "Student")] checks against.
+            // Add one Role claim per role (e.g. "Student", "Professor", "Admin").
+            // [Authorize(Roles = "Student")] reads these claims.
             claims.AddRange(roles.Select(r => new Claim(ClaimTypes.Role, r)));
 
-            // Create the signing key from our secret string.
-            // SymmetricSecurityKey = same key is used to sign AND verify the token.
+            // Build the signing key from the secret string in config.
+            // SymmetricSecurityKey: same key signs AND verifies — keep it SECRET.
             var key   = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Key));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-            // Assemble the JWT object with all its parts.
+            // Assemble the complete JWT object.
             var jwt = new JwtSecurityToken(
                 issuer:             jwtSettings.Issuer,
                 audience:           jwtSettings.Audience,
@@ -222,37 +311,39 @@ namespace BNU_Student_Portal_Services.Features.Authentication
                 expires:            DateTime.UtcNow.AddMinutes(jwtSettings.AccessTokenExpiryMinutes),
                 signingCredentials: creds);
 
-            // Serialize to the compact Base64Url string: header.payload.signature
-            // This is the string that goes in the Authorization: Bearer <token> header.
+            // Serialize to compact form: Base64Url(header).Base64Url(payload).signature
+            // This is the string the client puts in: Authorization: Bearer <token>
             return (new JwtSecurityTokenHandler().WriteToken(jwt), jti);
         }
 
         /// <summary>
-        /// Reads and validates a JWT token that has already EXPIRED.
-        /// Used during the refresh flow to extract userId and jti from the old token.
+        /// Validates an ALREADY EXPIRED JWT and returns its ClaimsPrincipal.
+        /// Used in the refresh flow to extract userId and jti from the old token.
         ///
-        /// KEY DIFFERENCE from normal validation:
-        ///   ValidateLifetime = false  →  we accept expired tokens intentionally.
-        ///   The expiry check is handled separately in the RefreshToken row (IsActive).
+        /// KEY DIFFERENCE FROM NORMAL VALIDATION:
+        ///   ValidateLifetime = false → we intentionally accept expired tokens.
+        ///   The "is this session still valid" check is done via the DB row's
+        ///   IsActive property, NOT via the token's expiry timestamp.
         ///
-        /// We still validate:
-        ///   • Issuer and Audience (confirms the token came from our server)
-        ///   • Signature (confirms the token was not tampered with)
-        ///   • Algorithm (rejects tokens signed with a different algorithm)
+        /// WE STILL VALIDATE:
+        ///   ✓ Signature   — proves token was not tampered with
+        ///   ✓ Issuer      — proves token came from our server
+        ///   ✓ Audience    — proves token was meant for our API
+        ///   ✓ Algorithm   — rejects alg:none and algorithm-confusion attacks
         ///
-        /// Returns the ClaimsPrincipal so callers can read individual claims.
-        /// Throws SecurityTokenException if the token is invalid (wrong signature, etc).
+        /// THROWS SecurityTokenException if any of the above checks fail.
         /// </summary>
         private ClaimsPrincipal GetPrincipalFromExpiredToken(string token)
         {
-            var jwtSettings = config.GetSection("JwtSettings").Get<JwtSettings>()!
-                ?? throw new InvalidOperationException("JwtSettings not configured.");
+            var jwtSettings = config.GetSection("JwtSettings").Get<JwtSettings>()
+                ?? throw new InvalidOperationException(
+                    "JwtSettings section is missing from appsettings.json.");
 
             var parameters = new TokenValidationParameters
             {
                 ValidateIssuer           = true,
                 ValidateAudience         = true,
-                ValidateLifetime         = false,   // ← intentionally ignore expiry
+                ValidateLifetime         = false,  // ← INTENTIONALLY ignore expiry
                 ValidateIssuerSigningKey = true,
                 ValidIssuer              = jwtSettings.Issuer,
                 ValidAudience            = jwtSettings.Audience,
@@ -263,120 +354,130 @@ namespace BNU_Student_Portal_Services.Features.Authentication
             var handler   = new JwtSecurityTokenHandler();
             var principal = handler.ValidateToken(token, parameters, out var validatedToken);
 
-            // Double-check the algorithm — reject anything that is not HS256.
-            // Prevents algorithm confusion attacks (e.g. alg:none or RS256 swap).
+            // Reject tokens that are not signed with HMAC-SHA256.
+            // Prevents "algorithm confusion" attacks where an attacker swaps
+            // the algorithm to "none" or switches to an asymmetric algorithm.
             if (validatedToken is not JwtSecurityToken jwtToken ||
                 !jwtToken.Header.Alg.Equals(
                     SecurityAlgorithms.HmacSha256,
                     StringComparison.InvariantCultureIgnoreCase))
-                throw new SecurityTokenException("Invalid token algorithm.");
+                throw new SecurityTokenException(
+                    "Token uses an unexpected signing algorithm.");
 
             return principal;
         }
 
 
-        // ════════════════════════════════════════════════════════════════════
+        // ═══════════════════════════════════════════════════════════════════════
         // PUBLIC — AUTH OPERATIONS
-        // ════════════════════════════════════════════════════════════════════
+        // ═══════════════════════════════════════════════════════════════════════
 
+        /// <summary>Returns true if an account with the given email already exists.</summary>
         public async Task<bool> CheckEmailAsync(string Email)
-        {
-            var user = await userManager.FindByEmailAsync(Email);
-            return user != null;
-        }
+            => await userManager.FindByEmailAsync(Email) is not null;
 
-        // ── LOGIN ─────────────────────────────────────────────────────────────
+
+        // ───────────────────────────────────────────────────────────────────────
+        // LOGIN
+        // ───────────────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Full login flow:
-        ///  1. Verify credentials.
-        ///  2. Generate JWT access token (with embedded jti).
-        ///  3. Generate raw opaque refresh token (random bytes).
-        ///  4. Hash the refresh token.
-        ///  5. Persist a RefreshToken row: hash + jti + userId + expiry.
-        ///  6. Return { AccessToken, RefreshToken } to the client.
+        /// Authenticates a user and returns a fresh JWT + refresh token pair.
         ///
-        /// The client should store the access token in memory and the
-        /// refresh token in an HttpOnly cookie (or secure storage).
+        /// STEP-BY-STEP:
+        ///  1. Verify email exists.
+        ///  2. Verify password using Identity's secure hash comparison.
+        ///  3. Generate JWT access token → get back (jwtString, jti).
+        ///  4. Generate opaque refresh token (64 random bytes → Base64).
+        ///  5. Hash the refresh token (SHA-256).
+        ///  6. Persist a RefreshToken row:
+        ///       TokenHash = hash of raw token  (DB never sees raw value)
+        ///       JwtId     = jti                (links this row to step 3's JWT)
+        ///       UserId    = user.Id
+        ///       ExpiresAt = now + 7 days
+        ///  7. Return { AccessToken = jwt, RefreshToken = rawToken } to client.
         /// </summary>
         public async Task<Result<LoginReturnDto>> LoginAsync(LoginDto loginDto)
         {
-            // Step 1: Find the user account by email.
+            // 1. Find user account
             var user = await userManager.FindByEmailAsync(loginDto.Email);
             if (user is null)
-                return Error.InvalidCredentials(
-                    "Auth.InvalidCredentials", "Invalid email or password.");
+                return Result<LoginReturnDto>.Fail(
+                    Error.InvalidCredentials(
+                        "Auth.InvalidCredentials", "Invalid email or password."));
 
-            // Step 2: Verify the password using Identity's secure hash comparison.
+            // 2. Verify password — Identity compares against the stored hash
             if (!await userManager.CheckPasswordAsync(user, loginDto.Password))
-                return Error.InvalidCredentials(
-                    "Auth.InvalidCredentials", "Invalid email or password.");
+                return Result<LoginReturnDto>.Fail(
+                    Error.InvalidCredentials(
+                        "Auth.InvalidCredentials", "Invalid email or password."));
 
-            // Step 3: Generate the JWT access token.
-            // jti is a Guid baked into the token payload — unique per token.
+            // 3. Generate JWT access token
+            // jti is a Guid embedded in the token — the unique token fingerprint
             var (accessToken, jti) = await GenerateAccessTokenAsync(user);
 
-            // Step 4: Generate a cryptographically random raw refresh token.
-            // This is the value sent to the client — store it securely client-side.
+            // 4. Generate the raw opaque refresh token (64 random bytes → Base64)
+            // This exact string is sent to the client and stored in their cookie.
             var rawRefreshToken = GenerateRefreshToken();
 
-            // Step 5: Hash the raw token before saving to DB.
-            // The DB never sees the raw token, only the hash.
-            var refreshTokenHash = ComputeSha256Hash(rawRefreshToken);
+            // 5. Hash the raw refresh token before touching the DB
+            // The DB stores the hash only — raw value is never persisted
+            var tokenHash = ComputeSha256Hash(rawRefreshToken);
 
-            // Step 6: Persist the RefreshToken row.
-            // JwtId = jti links this row to the access token issued above.
-            // On the next /refresh call, we will verify jti from the expired
-            // access token matches this row's JwtId.
+            // 6. Persist the refresh token session row
             var repo = unitOfWork.GetRepository<RefreshToken, Guid>();
             await repo.AddAsync(new RefreshToken
             {
-                TokenHash = refreshTokenHash,          // hashed — safe to store
-                JwtId     = jti,                       // links to the access token above
+                Id        = Guid.NewGuid(),
+                TokenHash = tokenHash,                 // SHA-256 hash — safe to store
+                JwtId     = jti,                       // ← binds this row to the JWT above
                 UserId    = user.Id,                   // session owner
-                ExpiresAt = DateTime.UtcNow.AddDays(7) // refresh tokens live for 7 days
+                ExpiresAt = DateTime.UtcNow.AddDays(7) // refresh window = 7 days
+                // UsedAt   = null → not yet consumed
+                // RevokedAt = null → not revoked
             });
 
             await unitOfWork.SaveChangesAsync();
 
-            // Step 7: Return both tokens to the client.
-            // Access token → short-lived, used in Authorization header.
-            // Refresh token → long-lived, used only at /auth/refresh endpoint.
+            // 7. Return both tokens to the client
+            // Client stores accessToken in memory, refreshToken in HttpOnly cookie
             return Result<LoginReturnDto>.Ok(new LoginReturnDto
             {
-                AccessToken  = accessToken,     // JWT string: header.payload.signature
-                RefreshToken = rawRefreshToken  // raw 88-char Base64 string
+                AccessToken  = accessToken,    // short-lived JWT (15–60 min)
+                RefreshToken = rawRefreshToken // long-lived opaque secret (7 days)
             });
         }
 
-        // ── REFRESH ───────────────────────────────────────────────────────────
+
+        // ───────────────────────────────────────────────────────────────────────
+        // REFRESH TOKEN ROTATION
+        // ───────────────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Token rotation flow — issues a new token pair:
+        /// Issues a new token pair by validating the existing (expired) pair.
         ///
-        ///  1. Extract claims from the EXPIRED access token (signature still verified).
-        ///  2. Hash the incoming raw refresh token.
-        ///  3. Look up the DB row by hash.
-        ///  4. Run security checks:
-        ///       a. Row exists.
-        ///       b. Row.UserId  == userId from access token claims.
-        ///       c. Row.JwtId   == jti from access token claims.  ← critical link
-        ///       d. Row.IsActive (not used, not revoked, not expired).
-        ///  5. Rotate: mark old row as used + revoked.
-        ///  6. Issue a brand new token pair (new jti, new random refresh token).
-        ///  7. Link old row → new row via ReplacedByTokenHash (audit trail).
-        ///  8. Persist new RefreshToken row.
-        ///  9. Return new { AccessToken, RefreshToken }.
+        /// ROTATION RULE:
+        ///   Each refresh token can be used EXACTLY ONCE.
+        ///   After use, the old token is immediately marked as used + revoked
+        ///   and a brand new token pair is issued.
+        ///   The old row points to the new row via ReplacedByTokenHash (audit trail).
         ///
-        /// REPLAY PROTECTION:
-        /// If someone steals a refresh token and uses it AFTER the legitimate user
-        /// already rotated it, the stolen token's row will have UsedAt != null
-        /// (IsActive = false) → request is rejected.
+        /// THE jti CHECK (most important security step):
+        ///   The jti in the incoming expired access token MUST match the JwtId
+        ///   stored in the DB row for the incoming refresh token.
+        ///   This proves: "these two tokens were genuinely issued together".
+        ///   Without it, an attacker could mix tokens from different sessions.
+        ///
+        /// REPLAY ATTACK PROTECTION:
+        ///   If User A refreshes → old row gets UsedAt = now → IsActive = false.
+        ///   If Attacker then tries the same old refresh token → row.IsActive = false
+        ///   → request rejected with 401.
         /// </summary>
         public async Task<Result<LoginReturnDto>> RefreshTokenAsync(RefreshTokenDto dto)
         {
-            // Step 1: Parse and validate the expired access token.
-            // We read claims but do NOT check expiry (that is intentional).
+            // ── Step 1: Parse and validate the expired access token ─────────────
+            // We only validate signature/issuer/audience — NOT the expiry.
+            // Extracting claims from an expired token is intentional here.
             ClaimsPrincipal principal;
             try
             {
@@ -384,70 +485,76 @@ namespace BNU_Student_Portal_Services.Features.Authentication
             }
             catch
             {
-                // Token was tampered with, wrong algorithm, wrong issuer, etc.
+                // Wrong signature, wrong issuer, tampered token, alg:none, etc.
                 return Result<LoginReturnDto>.Fail(
-                    Error.Unauthorized("Auth.InvalidToken", "Invalid access token."));
+                    Error.Unauthorized(
+                        "Auth.InvalidToken",
+                        "The access token is invalid."));
             }
 
-            // Read the two critical values from the access token claims.
+            // Extract the two values we need from the access token claims
             var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier);
-            // jti is what links this access token to its RefreshToken row in the DB.
             var jti    = principal.FindFirstValue(JwtRegisteredClaimNames.Jti);
+            // jti is the link — it must match the DB row's JwtId below
 
-            // Step 2: Hash the incoming raw refresh token.
-            // We look up the DB row using the hash, not the raw value.
+            // ── Step 2: Hash the incoming raw refresh token ─────────────────────
+            // We never stored the raw token — only its hash. So we hash the
+            // incoming value and use the hash to find the DB row.
             var incomingHash = ComputeSha256Hash(dto.RefreshToken);
 
-            var repo = unitOfWork.GetRepository<RefreshToken, Guid>();
+            // ── Step 3: Load all refresh tokens and find the matching row ────────
+            // We use GetAllAsync() (returns IEnumerable<T>) and call
+            // FirstOrDefault on the materialised collection.
+            // This avoids the ParallelEnumerable type-inference issue that occurs
+            // when calling FirstOrDefault directly on IQueryable/ParallelQuery.
+            var repo   = unitOfWork.GetRepository<RefreshToken, Guid>();
+            var all    = await repo.GetAllAsync();
+            var stored = all.FirstOrDefault(x => x.TokenHash == incomingHash);
 
-            // Step 3: Find the DB row by hash.
-            // .AsEnumerable() materialises the query to avoid LINQ provider
-            // type-inference issues with custom IRepository<T,TKey> implementations.
-            var stored = repo.GetAll()
-                             .AsEnumerable()
-                             .FirstOrDefault(x => x.TokenHash == incomingHash);
-
-            // Step 4: Run all security checks in one block.
-            // Any failure returns the same generic error (no info leak about which check failed).
-            if (stored is null                  // token was never issued or already cleaned up
-                || stored.UserId != userId      // token belongs to a different user
-                || stored.JwtId  != jti         // refresh token was NOT issued with this access token
-                || !stored.IsActive)            // token was used, revoked, or expired
+            // ── Step 4: Security validation — ALL checks must pass ───────────────
+            if (stored is null            // hash not found → token was never issued
+                || stored.UserId != userId // token belongs to a DIFFERENT user
+                || stored.JwtId  != jti   // ← jti mismatch: tokens not from same pair
+                || !stored.IsActive)      // already used, revoked, or past ExpiresAt
             {
+                // Return the same error for all failures — prevents info leaks
+                // (attacker cannot tell WHICH check failed)
                 return Result<LoginReturnDto>.Fail(
                     Error.Unauthorized(
                         "Auth.InvalidRefreshToken",
-                        "Invalid or expired refresh token."));
+                        "The refresh token is invalid or has expired."));
             }
 
-            // Step 5: Rotate — this token is now consumed. Mark it dead.
-            // UsedAt  → records when it was used (audit log)
-            // RevokedAt → makes IsActive = false so it cannot be reused
+            // ── Step 5: Rotate — mark the old token as consumed ─────────────────
+            // UsedAt  → records the exact moment it was consumed (audit log)
+            // RevokedAt → makes IsActive = false, blocking any future use
             stored.UsedAt    = DateTime.UtcNow;
             stored.RevokedAt = DateTime.UtcNow;
 
-            // Step 6: Generate a completely new token pair.
+            // ── Step 6: Generate a completely new token pair ─────────────────────
             var user = await userManager.FindByIdAsync(userId!);
             var (newAccessToken, newJti) = await GenerateAccessTokenAsync(user!);
             var newRawRefreshToken       = GenerateRefreshToken();
-            var newRefreshTokenHash      = ComputeSha256Hash(newRawRefreshToken);
+            var newTokenHash             = ComputeSha256Hash(newRawRefreshToken);
 
-            // Step 7: Record the rotation chain for auditing.
-            // old row → ReplacedByTokenHash points to the new row's hash.
-            stored.ReplacedByTokenHash = newRefreshTokenHash;
+            // ── Step 7: Record the rotation chain (audit trail) ─────────────────
+            // old row's ReplacedByTokenHash points to the new row's hash.
+            // If you ever need to trace a session's full history, follow this chain.
+            stored.ReplacedByTokenHash = newTokenHash;
 
-            // Step 8: Persist the new RefreshToken row.
+            // ── Step 8: Persist the new refresh token row ────────────────────────
             await repo.AddAsync(new RefreshToken
             {
-                TokenHash = newRefreshTokenHash,
-                JwtId     = newJti,              // new access token's jti
+                Id        = Guid.NewGuid(),
+                TokenHash = newTokenHash,
+                JwtId     = newJti,                    // new JWT's jti
                 UserId    = user!.Id,
                 ExpiresAt = DateTime.UtcNow.AddDays(7)
             });
 
             await unitOfWork.SaveChangesAsync();
 
-            // Step 9: Return the fresh token pair.
+            // ── Step 9: Return the fresh token pair ──────────────────────────────
             return Result<LoginReturnDto>.Ok(new LoginReturnDto
             {
                 AccessToken  = newAccessToken,
@@ -455,25 +562,29 @@ namespace BNU_Student_Portal_Services.Features.Authentication
             });
         }
 
-        // ── REVOKE (LOGOUT) ───────────────────────────────────────────────────
+
+        // ───────────────────────────────────────────────────────────────────────
+        // REVOKE / LOGOUT
+        // ───────────────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Terminates a refresh token session (logout).
+        /// Terminates a session by permanently revoking a refresh token.
         ///
-        /// The client sends the raw refresh token.
-        /// We hash it, find the DB row, and stamp RevokedAt = now.
-        /// After this call, the token cannot be used to get a new access token.
+        /// Call this on logout. After this, the token's row has RevokedAt set,
+        /// which makes IsActive = false, blocking any future refresh attempts.
         ///
-        /// For a full logout on a multi-device app, call this once per device
-        /// session or revoke all rows for the userId.
+        /// For full logout across ALL devices, call this for every active
+        /// refresh token row for the user (filter by UserId, RevokedAt == null).
         /// </summary>
         public async Task<Result> RevokeRefreshTokenAsync(string rawRefreshToken)
         {
-            var hash   = ComputeSha256Hash(rawRefreshToken);
-            var repo   = unitOfWork.GetRepository<RefreshToken, Guid>();
-            var stored = repo.GetAll()
-                             .AsEnumerable()
-                             .FirstOrDefault(x => x.TokenHash == hash);
+            var hash = ComputeSha256Hash(rawRefreshToken);
+            var repo = unitOfWork.GetRepository<RefreshToken, Guid>();
+
+            // Load all and find by hash — same pattern as RefreshTokenAsync
+            // to avoid ParallelEnumerable type-inference issues.
+            var all    = await repo.GetAllAsync();
+            var stored = all.FirstOrDefault(x => x.TokenHash == hash);
 
             if (stored is null || !stored.IsActive)
                 return Result.Fail(
@@ -481,7 +592,8 @@ namespace BNU_Student_Portal_Services.Features.Authentication
                         "Auth.TokenNotFound",
                         "Refresh token not found or already revoked."));
 
-            // Mark as revoked — IsActive becomes false immediately.
+            // Stamp RevokedAt — IsActive becomes false immediately.
+            // The row is kept for audit purposes, not deleted.
             stored.RevokedAt = DateTime.UtcNow;
             await unitOfWork.SaveChangesAsync();
 
@@ -489,16 +601,16 @@ namespace BNU_Student_Portal_Services.Features.Authentication
         }
 
 
-        // ════════════════════════════════════════════════════════════════════
-        // REGISTRATION METHODS
-        // ════════════════════════════════════════════════════════════════════
-
-        // All three register methods follow the same pattern:
+        // ═══════════════════════════════════════════════════════════════════════
+        // REGISTRATION
+        // ═══════════════════════════════════════════════════════════════════════
+        //
+        // All three methods follow the same pattern:
         //  1. Reject duplicate email.
-        //  2. Build AppUser entity.
-        //  3. Create Identity account with NationalId as initial password.
+        //  2. Build AppUser entity (email as username, NationalId as password).
+        //  3. Create Identity account.
         //  4. Assign role.
-        //  5. Create the profile record (Student / Professor / TA).
+        //  5. Create profile record (Student / Professor / TeachingAssistant).
         //  6. Save and return.
 
         public async Task<Result> RegisterStudentAsync(RegisterStudentDto dto)
@@ -506,14 +618,13 @@ namespace BNU_Student_Portal_Services.Features.Authentication
             if (await userManager.FindByEmailAsync(dto.Email) is not null)
                 return Result<object>.Fail(
                     Error.BadRequest("Auth.DuplicateEmail",
-                        $"Email '{dto.Email}' is already registered."));
+                        $"An account with email '{dto.Email}' already exists."));
 
-            var user           = BuildAppUser(dto.Name, dto.Email, dto.NationalId,
-                                     dto.Nationality, dto.DateOfBirth, dto.Gender, dto.PhoneNumber);
-            var identityResult = await userManager.CreateAsync(user, dto.NationalId);
+            var user = BuildAppUser(dto.Name, dto.Email, dto.NationalId,
+                           dto.Nationality, dto.DateOfBirth, dto.Gender, dto.PhoneNumber);
 
-            if (!identityResult.Succeeded)
-                return IdentityFailed(identityResult.Errors);
+            var result = await userManager.CreateAsync(user, dto.NationalId);
+            if (!result.Succeeded) return IdentityFailed(result.Errors);
 
             await userManager.AddToRoleAsync(user, "Student");
 
@@ -530,14 +641,13 @@ namespace BNU_Student_Portal_Services.Features.Authentication
             if (await userManager.FindByEmailAsync(dto.Email) is not null)
                 return Result<object>.Fail(
                     Error.BadRequest("Auth.DuplicateEmail",
-                        $"Email '{dto.Email}' is already registered."));
+                        $"An account with email '{dto.Email}' already exists."));
 
-            var user           = BuildAppUser(dto.Name, dto.Email, dto.NationalId,
-                                     dto.Nationality, dto.DateOfBirth, dto.Gender, dto.PhoneNumber);
-            var identityResult = await userManager.CreateAsync(user, dto.NationalId);
+            var user = BuildAppUser(dto.Name, dto.Email, dto.NationalId,
+                           dto.Nationality, dto.DateOfBirth, dto.Gender, dto.PhoneNumber);
 
-            if (!identityResult.Succeeded)
-                return IdentityFailed(identityResult.Errors);
+            var result = await userManager.CreateAsync(user, dto.NationalId);
+            if (!result.Succeeded) return IdentityFailed(result.Errors);
 
             await userManager.AddToRoleAsync(user, "Professor");
 
@@ -554,14 +664,13 @@ namespace BNU_Student_Portal_Services.Features.Authentication
             if (await userManager.FindByEmailAsync(dto.Email) is not null)
                 return Result<object>.Fail(
                     Error.BadRequest("Auth.DuplicateEmail",
-                        $"Email '{dto.Email}' is already registered."));
+                        $"An account with email '{dto.Email}' already exists."));
 
-            var user           = BuildAppUser(dto.Name, dto.Email, dto.NationalId,
-                                     dto.Nationality, dto.DateOfBirth, dto.Gender, dto.PhoneNumber);
-            var identityResult = await userManager.CreateAsync(user, dto.NationalId);
+            var user = BuildAppUser(dto.Name, dto.Email, dto.NationalId,
+                           dto.Nationality, dto.DateOfBirth, dto.Gender, dto.PhoneNumber);
 
-            if (!identityResult.Succeeded)
-                return IdentityFailed(identityResult.Errors);
+            var result = await userManager.CreateAsync(user, dto.NationalId);
+            if (!result.Succeeded) return IdentityFailed(result.Errors);
 
             await userManager.AddToRoleAsync(user, "TeachingAssistant");
 
@@ -574,34 +683,33 @@ namespace BNU_Student_Portal_Services.Features.Authentication
         }
 
 
-        // ════════════════════════════════════════════════════════════════════
+        // ═══════════════════════════════════════════════════════════════════════
         // PASSWORD MANAGEMENT
-        // ════════════════════════════════════════════════════════════════════
+        // ═══════════════════════════════════════════════════════════════════════
 
         /// <summary>
-        /// Allows an authenticated user to change their own password.
-        /// Reads their email from the JWT claims via IHttpContextAccessor.
+        /// Self-service password change for authenticated users.
+        /// Reads the caller's email from JWT claims via IHttpContextAccessor.
+        /// Requires the endpoint to be decorated with [Authorize].
+        /// Identity's ChangePasswordAsync verifies the current password
+        /// before applying the new one.
         /// </summary>
-        public async Task<Result<bool>> ResetPasswordAsync(ChangePasswordDto changePasswordDto)
+        public async Task<Result<bool>> ResetPasswordAsync(ChangePasswordDto dto)
         {
-            // Read the authenticated user's email from the current HTTP request claims.
-            // This only works if the endpoint has [Authorize].
             var email = httpContextAccessor.HttpContext!.User
                             .FindFirstValue(ClaimTypes.Email);
 
             if (email is null)
                 return Result<bool>.Fail(
-                    Error.Unauthorized("Auth.Unauthorized", "User is not authenticated."));
+                    Error.Unauthorized("Auth.Unauthorized", "Not authenticated."));
 
             var user = await userManager.FindByEmailAsync(email);
-
             if (user is null)
                 return Result<bool>.Fail(
                     Error.NotFound("Auth.UserNotFound", "User not found."));
 
-            // ChangePasswordAsync verifies the current password before changing.
             var result = await userManager.ChangePasswordAsync(
-                user, changePasswordDto.CurrentPassword, changePasswordDto.NewPassword);
+                user, dto.CurrentPassword, dto.NewPassword);
 
             if (!result.Succeeded)
                 return Result<bool>.Fail(
@@ -613,22 +721,21 @@ namespace BNU_Student_Portal_Services.Features.Authentication
         }
 
         /// <summary>
-        /// Admin-only operation: resets any user's password back to their NationalId.
-        /// Uses a password reset token generated by Identity — does not require the
-        /// current password.
+        /// Admin-only: resets any user's password back to their NationalId.
+        /// Uses Identity's GeneratePasswordResetTokenAsync — does NOT require
+        /// the user's current password.
         /// </summary>
-        public async Task<Result<bool>> ResetPasswordAdminAsync(AdminResetPasswordDto resetPasswordDto)
+        public async Task<Result<bool>> ResetPasswordAdminAsync(AdminResetPasswordDto dto)
         {
-            var user = await userManager.FindByEmailAsync(resetPasswordDto.Email);
-
+            var user = await userManager.FindByEmailAsync(dto.Email);
             if (user is null)
                 return Result<bool>.Fail(
                     Error.NotFound("Auth.UserNotFound", "User not found."));
 
-            // Generate a one-time reset token from Identity (not a JWT).
+            // Generate a one-time Identity reset token (not a JWT)
             var token = await userManager.GeneratePasswordResetTokenAsync(user);
 
-            // Reset password to NationalId (the default initial password for BNU users).
+            // Reset to NationalId — the default initial password in BNU
             var result = await userManager.ResetPasswordAsync(user, token, user.NationalId);
 
             if (!result.Succeeded)
