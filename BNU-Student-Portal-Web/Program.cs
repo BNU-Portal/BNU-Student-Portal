@@ -1,8 +1,11 @@
+using BNU_Student_Portal_Domain.Interfaces;
+using BNU_Student_Portal_Persistence.Data.DataSeed;
 using BNU_Student_Portal_Persistence.Data.DbContext;
 using BNU_Student_Portal_Persistence.DI;
 using BNU_Student_Portal_Presentation;
 using BNU_Student_Portal_Services.FluentValidationMiddleWare;
 using BNU_Student_Portal_Web.CustomMiddlewares;
+using BNU_Student_Portal_Web.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 
@@ -24,6 +27,13 @@ builder.Services.AddDbContext<BNU_Student_Portal_DbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 #endregion
 
+
+#region Data Initializer
+
+builder.Services.AddScoped<IDataInitializer, DataInitializer>();
+
+#endregion
+
 #region Application Services
 builder.Services.AddApplicationServices();
 #endregion
@@ -32,11 +42,20 @@ builder.Services.AddApplicationServices();
 builder.Services.AddPersistenceServicesRegistration();
 #endregion
 
+
+
 #endregion
 
 var app = builder.Build();
 
 app.UseMiddleware<ExceptionHandlerMiddleware>();
+
+
+//adding custom middlewares for database migration and data seeding during application startup
+await app.MigrateDatabaseAsync();
+
+// Seed initial data (e.g., roles, default users) after migrations
+await app.SeedIdentityDataAsync();
 
 if (app.Environment.IsDevelopment())
 {
