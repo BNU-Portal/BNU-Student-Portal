@@ -3,6 +3,7 @@ using BNU_Student_Portal_Domain.Entities.Auth;
 using BNU_Student_Portal_Domain.Interfaces;
 using BNU_Student_Portal_Services_Implementation;
 using BNU_Student_Portal_Shared_Library.DTO_s.Auth;
+using BNU_Student_Portal_Shared_Library.Settings;
 using BNU_Student_Portal_Shared_Library.SharedResponse;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -587,7 +588,7 @@ namespace BNU_Student_Portal_Services.Features.Authentication
             var stored = all.FirstOrDefault(x => x.TokenHash == hash);
 
             if (stored is null || !stored.IsActive)
-                return Result.Fail(
+                return Result<object>.Fail(
                     Error.NotFound(
                         "Auth.TokenNotFound",
                         "Refresh token not found or already revoked."));
@@ -597,7 +598,7 @@ namespace BNU_Student_Portal_Services.Features.Authentication
             stored.RevokedAt = DateTime.UtcNow;
             await unitOfWork.SaveChangesAsync();
 
-            return Result.Ok();
+            return Result<object>.Ok("Token Revoked");
         }
 
 
