@@ -624,7 +624,10 @@ namespace BNU_Student_Portal_Services.Features.Authentication
             var user = BuildAppUser(dto.Name, dto.Email, dto.NationalId,
                            dto.Nationality, dto.DateOfBirth, dto.Gender, dto.PhoneNumber);
 
-            var result = await userManager.CreateAsync(user, dto.NationalId);
+
+            var defaultPassword = $"Bnu@{dto.NationalId}";
+
+            var result = await userManager.CreateAsync(user, defaultPassword);
             if (!result.Succeeded) return IdentityFailed(result.Errors);
 
             await userManager.AddToRoleAsync(user, "Student");
