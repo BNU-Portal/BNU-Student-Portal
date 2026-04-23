@@ -9,21 +9,18 @@ namespace BNU_Student_Portal_Services_Implementation
 
         Task<Result<LoginReturnDto>> LoginAsync(LoginDto loginDto);
 
-        Task<Result> RegisterStudentAsync(RegisterStudentDto dto); 
+        Task<Result> RegisterStudentAsync(RegisterStudentDto dto);
         Task<Result> RegisterProfessorAsync(RegisterProfessorDto dto);
         Task<Result> RegisterTAAsync(RegisterTADto dto);
 
         Task<string> GenerateJWTTokenAsync(AppUser appUser);
+        Task<Result<RefreshTokenDto>> RefreshTokenAsync(RefreshTokenDto refreshTokenDto);
 
-
-        Task<Result<RefreshTokenDto>> RefreshTokenAsync();
-
-        Task<Result> ResetPasswordAsync();
+        Task<Result<bool>> ResetPasswordAsync(ChangePasswordDto changePasswordDto);
+        Task<Result<bool>> ResetPasswordAdminAsync(AdminResetPasswordDto resetPasswordDto);
 
 
         Task<bool> CheckEmailAsync(string Email); //==> get it from the token 
-
-
 
 
     }

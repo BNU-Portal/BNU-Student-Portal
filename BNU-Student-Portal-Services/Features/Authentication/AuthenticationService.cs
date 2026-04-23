@@ -4,8 +4,10 @@ using BNU_Student_Portal_Domain.Interfaces;
 using BNU_Student_Portal_Services_Implementation;
 using BNU_Student_Portal_Shared_Library.DTO_s.Auth;
 using BNU_Student_Portal_Shared_Library.SharedResponse;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
+using System.Security.Claims;
 
 namespace BNU_Student_Portal_Services.Features.Authentication
 {
@@ -15,6 +17,8 @@ namespace BNU_Student_Portal_Services.Features.Authentication
         IConfiguration config,
         IMapper mapper,
         IUnitOfWork unitOfWork
+        ,
+         IHttpContextAccessor httpContextAccessor
         )
         : IAuthenticationService
     {
@@ -55,7 +59,10 @@ namespace BNU_Student_Portal_Services.Features.Authentication
             throw new NotImplementedException();
         }
 
-
+        public Task<Result<RefreshTokenDto>> RefreshTokenAsync(RefreshTokenDto refreshTokenDto)
+        {
+            throw new NotImplementedException();
+        }
 
 
         public async Task<Result<LoginReturnDto>> LoginAsync(LoginDto loginDto)
@@ -82,6 +89,7 @@ namespace BNU_Student_Portal_Services.Features.Authentication
             };
             return Result<LoginReturnDto>.Ok(loginReturnDto);
         }
+
         public async Task<Result> RegisterStudentAsync(RegisterStudentDto dto)
         {
             // 1. Check duplicate email
@@ -108,9 +116,12 @@ namespace BNU_Student_Portal_Services.Features.Authentication
 
             return Result<object>.Ok(student);
         }
-
         public async Task<Result> RegisterProfessorAsync(RegisterProfessorDto dto)
         {
+            if (await userManager.FindByEmailAsync(dto.Email) is not null)
+                return Result<object>.Fail(
+                    Error.BadRequest("Auth.DuplicateEmail", $"Email '{dto.Email}' is already registered."));
+
             var user = BuildAppUser(dto.Name, dto.Email, dto.NationalId , dto.Nationality, dto.DateOfBirth, dto.Gender, dto.PhoneNumber);
             var identityResult = await userManager.CreateAsync(user, dto.NationalId);
 
@@ -128,9 +139,13 @@ namespace BNU_Student_Portal_Services.Features.Authentication
 
             return Result<object>.Ok(professor);
         }
-
         public async Task<Result> RegisterTAAsync(RegisterTADto dto)
         {
+
+            if (await userManager.FindByEmailAsync(dto.Email) is not null)
+                return Result<object>.Fail(
+                    Error.BadRequest("Auth.DuplicateEmail", $"Email '{dto.Email}' is already registered."));
+
             var user = BuildAppUser(dto.Name, dto.Email, dto.NationalId, dto.Nationality, dto.DateOfBirth, dto.Gender , dto.PhoneNumber);
 
             var identityResult = await userManager.CreateAsync(user, dto.NationalId);
@@ -150,14 +165,57 @@ namespace BNU_Student_Portal_Services.Features.Authentication
             return Result<object>.Ok(ta);
         }
 
-        public Task<Result<RefreshTokenDto>> RefreshTokenAsync()
+
+
+        public async Task<Result<bool>> ResetPasswordAsync(ChangePasswordDto changePasswordDto)
         {
-            throw new NotImplementedException();
+            
+            var email = httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.Email);
+
+            if(email is null)
+            {
+                return Result<bool>.Fail(Error.Unauthorized("Auth.Unauthorized", "User is not authenticated."));
+            }
+
+
+            var user = await userManager.FindByEmailAsync(email);
+
+
+            if (user is null)
+                return Result<bool>.Fail(Error.NotFound("Auth.UserNotFound", "User not found."));
+
+
+
+            var result = await userManager.ChangePasswordAsync(user, changePasswordDto.CurrentPassword, changePasswordDto.NewPassword);
+            if (!result.Succeeded)
+                return Result<bool>.Fail(result.Errors
+                    .Select(e => Error.Validation(e.Code, e.Description))
+                    .ToList());
+
+            return Result<bool>.Ok(result.Succeeded);
         }
 
-        public Task<Result> ResetPasswordAsync()
+        public async Task<Result<bool>> ResetPasswordAdminAsync(AdminResetPasswordDto resetPasswordDto)
         {
-            throw new NotImplementedException();
+            var user = await userManager.FindByEmailAsync(resetPasswordDto.Email);
+
+            if (user is null)
+                return Result<bool>.Fail(Error.NotFound("Auth.UserNotFound", "User not found."));
+
+            var token = await userManager.GeneratePasswordResetTokenAsync(user);
+
+            var result = await userManager.ResetPasswordAsync(user, token, user.NationalId);
+
+
+            if (!result.Succeeded)
+                return Result<bool>.Fail(result.Errors
+                    .Select(e => Error.Validation(e.Code, e.Description))
+                    .ToList());
+
+
+            return Result<bool>.Ok(result.Succeeded);
         }
+
+      
     }
 }

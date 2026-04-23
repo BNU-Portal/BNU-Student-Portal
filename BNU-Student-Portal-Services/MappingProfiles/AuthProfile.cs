@@ -11,7 +11,6 @@ namespace BNU_Student_Portal_Services.MappingProfiles
     {
         public AuthProfile()
         {
-
             CreateMap<RegisterStudentDto, Student>()
                 .ForMember(dest => dest.CertificateType,
                     opt => opt.MapFrom(src => Enum.Parse<CertificateType>(src.CertificateType, ignoreCase: true)))
