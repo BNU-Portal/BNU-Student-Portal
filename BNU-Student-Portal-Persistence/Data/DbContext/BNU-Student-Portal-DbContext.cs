@@ -13,12 +13,26 @@ namespace BNU_Student_Portal_Persistence.Data.DbContext
         public DbSet<Guardian> Guardians { get; set; }
         public DbSet<Address> Addresses { get; set; }
 
+        public DbSet<RefreshToken> RefreshTokens { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
             // Additional model configurations can be added here
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(BNU_Student_Portal_DbContext).Assembly);
+
+            modelBuilder.Entity<RefreshToken>(entity =>
+            {
+                entity.HasKey(x => x.Id);
+
+                entity.HasIndex(x => x.TokenHash).IsUnique();
+                entity.HasIndex(x => x.UserId);
+
+                entity.HasOne(x => x.User)
+                      .WithMany()
+                      .HasForeignKey(x => x.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
 
         }
     }

@@ -12,6 +12,8 @@ public static class ServicesRegistration
         var assembly = typeof(ServicesRegistration).Assembly;
 
 
+
+
         services.AddAutoMapper(assembly);
 
         // Registers ALL handlers in this assembly automatically
