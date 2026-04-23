@@ -8,8 +8,16 @@
     <UserSecretsId>82bd043a-879d-4a06-a943-a3a2cae974d5</UserSecretsId>
   </PropertyGroup>
 
+	<PropertyGroup>
+		<NoWarn>$(NoWarn);NU1903</NoWarn>
+	</PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.5" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.7">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="Scalar.AspNetCore" Version="2.14.1" />
   </ItemGroup>
 
