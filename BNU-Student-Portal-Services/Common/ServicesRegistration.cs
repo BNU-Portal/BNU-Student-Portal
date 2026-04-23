@@ -3,6 +3,8 @@ using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using BNU_Student_Portal_Services.Common.Behaviors;
 using BNU_Student_Portal_Services.FluentValidationMiddleWare;
+using BNU_Student_Portal_Services_Implementation;
+using BNU_Student_Portal_Services.Features.Authentication;
 
 public static class ServicesRegistration
 {
@@ -13,6 +15,8 @@ public static class ServicesRegistration
 
 
 
+
+        services.AddScoped<IAuthenticationService,AuthenticationService>();
 
         services.AddAutoMapper(assembly);
 

@@ -22,9 +22,6 @@ namespace BNU_Student_Portal_Domain.Entities.Auth
         public DateOnly DateOfBirth { get; set; }        // needed for student records
         public Gender Gender { get; set; }               // enum: Male/Female
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-        public string? RefreshToken { get; set; }
-        public DateTime RefreshTokenExpiryTime { get; set; }
     }
 
 
