@@ -7,7 +7,7 @@ namespace BNU_Student_Portal_Services_Implementation
     public interface IAuthenticationService
     {
 
-        public Task<Result<LoginReturnDto>> LoginAsync(LoginDto loginDto);
+        Task<Result<LoginReturnDto>> LoginAsync(LoginDto loginDto);
 
         Task<Result> RegisterStudentAsync(RegisterStudentDto dto); 
         Task<Result> RegisterProfessorAsync(RegisterProfessorDto dto);
@@ -16,7 +16,9 @@ namespace BNU_Student_Portal_Services_Implementation
         Task<string> GenerateJWTTokenAsync(AppUser appUser);
 
 
-        //Task<Result<RefreshTokenDto>> RefreshTokenAsync();
+        Task<Result<RefreshTokenDto>> RefreshTokenAsync();
+
+        Task<Result> ResetPasswordAsync();
 
 
         Task<bool> CheckEmailAsync(string Email); //==> get it from the token 

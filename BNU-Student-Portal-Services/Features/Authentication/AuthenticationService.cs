@@ -44,15 +44,19 @@ namespace BNU_Student_Portal_Services.Features.Authentication
 
 
 
-        public Task<bool> CheckEmailAsync(string Email)
+        public async Task<bool> CheckEmailAsync(string Email)
         {
-            throw new NotImplementedException();
+            var user = await userManager.FindByEmailAsync(Email);
+            return user != null;
         }
 
         public Task<string> GenerateJWTTokenAsync(AppUser appUser)
         {
             throw new NotImplementedException();
         }
+
+
+
 
         public async Task<Result<LoginReturnDto>> LoginAsync(LoginDto loginDto)
         {
@@ -98,18 +102,60 @@ namespace BNU_Student_Portal_Services.Features.Authentication
             // 4. Create Student profile record
             // mapping 
             var student = mapper.Map<Student>(dto);
+            student.AppUserId = user.Id;
             await unitOfWork.GetRepository<Student,Guid>().AddAsync(student) ;
             await unitOfWork.SaveChangesAsync();
 
             return Result<object>.Ok(student);
         }
 
-        public Task<Result> RegisterProfessorAsync(RegisterProfessorDto dto)
+        public async Task<Result> RegisterProfessorAsync(RegisterProfessorDto dto)
+        {
+            var user = BuildAppUser(dto.Name, dto.Email, dto.NationalId , dto.Nationality, dto.DateOfBirth, dto.Gender, dto.PhoneNumber);
+            var identityResult = await userManager.CreateAsync(user, dto.NationalId);
+
+            if (!identityResult.Succeeded)
+                return IdentityFailed(identityResult.Errors);
+
+            // 3. Assign role
+            await userManager.AddToRoleAsync(user, "Professor");
+
+            // 4. Create Professor profile record
+            var professor = mapper.Map<Professor>(dto);
+            professor.AppUserId = user.Id;
+            await unitOfWork.GetRepository<Professor,Guid>().AddAsync(professor);
+            await unitOfWork.SaveChangesAsync();
+
+            return Result<object>.Ok(professor);
+        }
+
+        public async Task<Result> RegisterTAAsync(RegisterTADto dto)
+        {
+            var user = BuildAppUser(dto.Name, dto.Email, dto.NationalId, dto.Nationality, dto.DateOfBirth, dto.Gender , dto.PhoneNumber);
+
+            var identityResult = await userManager.CreateAsync(user, dto.NationalId);
+            
+            if (!identityResult.Succeeded)
+                return IdentityFailed(identityResult.Errors);
+
+            // 3. Assign role
+            await userManager.AddToRoleAsync(user, "TeachingAssistant");
+
+            // 4. Create Teaching Assistant profile record
+            var ta = mapper.Map<TeachingAssistant>(dto);
+            ta.AppUserId = user.Id;
+            await unitOfWork.GetRepository<TeachingAssistant,Guid>().AddAsync(ta);
+            await unitOfWork.SaveChangesAsync();
+
+            return Result<object>.Ok(ta);
+        }
+
+        public Task<Result<RefreshTokenDto>> RefreshTokenAsync()
         {
             throw new NotImplementedException();
         }
 
-        public Task<Result> RegisterTAAsync(RegisterTADto dto)
+        public Task<Result> ResetPasswordAsync()
         {
             throw new NotImplementedException();
         }
