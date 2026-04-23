@@ -4,7 +4,7 @@ using System.Text;
 
 namespace BNU_Student_Portal_Domain.Entities.Auth
 {
-    public class Guardian
+    public class Guardian : BaseEntity<Guid>
     {
         public AppUser User { get; set; } = default!;
         public string UserId { get; set; } = default!;
