@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Identity;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace BNU_Student_Portal_Domain.Entities.Auth
 {
@@ -33,4 +32,4 @@ namespace BNU_Student_Portal_Domain.Entities.Auth
 
 
 }
-}
+
