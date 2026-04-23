@@ -19,7 +19,6 @@ builder.Services.AddOpenApi();
 
 #region DB
 // NOTE: Make sure to add the matching EF Core provider NuGet package to BNU-Student-Portal-Persistence.csproj
-// e.g. Microsoft.EntityFrameworkCore.SqlServer  --> UseSqlServer
 //      Npgsql.EntityFrameworkCore.PostgreSQL    --> UseNpgsql
 builder.Services.AddDbContext<BNU_Student_Portal_DbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
