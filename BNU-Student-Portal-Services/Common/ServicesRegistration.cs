@@ -16,6 +16,7 @@ public static class ServicesRegistration
 
 
 
+
         services.AddScoped<IAuthenticationService,AuthenticationService>();
 
         services.AddAutoMapper(assembly);
