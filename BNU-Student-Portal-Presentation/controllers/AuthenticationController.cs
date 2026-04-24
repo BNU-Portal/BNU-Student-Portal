@@ -175,7 +175,7 @@ namespace BNU_Student_Portal_Presentation.Controllers
         /// 422 → Identity validation errors
         /// </summary>
         [HttpPost("password/reset")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,SuperAdmin")]
         public async Task<IActionResult> AdminResetPassword([FromBody] AdminResetPasswordDto dto)
             => HandleResult(await authService.ResetPasswordAdminAsync(dto));
 

@@ -16,7 +16,7 @@ namespace BNU_Student_Portal_Persistence.DI
 
             //identity services
 
-            services.AddIdentity<AppUser, IdentityRole>(options =>
+            services.AddIdentityCore<AppUser>(options =>
             {
                 options.Password.RequireDigit = true;
                 options.Password.RequiredLength = 8;
@@ -29,6 +29,7 @@ namespace BNU_Student_Portal_Persistence.DI
 
                 options.User.RequireUniqueEmail = true;
             })
+        .AddRoles<IdentityRole>()
         .AddEntityFrameworkStores<BNU_Student_Portal_DbContext>()
         .AddDefaultTokenProviders();
 
