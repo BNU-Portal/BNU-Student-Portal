@@ -740,7 +740,7 @@ namespace BNU_Student_Portal_Services.Features.Authentication
             var token = await userManager.GeneratePasswordResetTokenAsync(user);
             var DefaultPassword = $"Bnu@{user.NationalId}";
             // Reset to NationalId — the default initial password in BNU
-            var result = await userManager.ResetPasswordAsync(user, token, user.NationalId);
+            var result = await userManager.ResetPasswordAsync(user, token, DefaultPassword);
 
             if (!result.Succeeded)
                 return Result<bool>.Fail(
