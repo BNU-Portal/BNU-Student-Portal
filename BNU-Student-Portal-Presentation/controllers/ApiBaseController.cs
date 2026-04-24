@@ -5,9 +5,7 @@ using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace BNU_Student_Portal_Presentation.Controllers
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class ApiBaseController : ControllerBase
+    public abstract class ApiBaseController : ControllerBase
     {
         protected IActionResult HandleResult(Result result)
         {
