@@ -28,6 +28,8 @@ namespace BNU_Student_Portal_Presentation.Controllers
     //
     // ═══════════════════════════════════════════════════════════════════════════
 
+    [ApiController]
+    [Route("api/[controller]")]
     public class AuthenticationController(IAuthenticationService authService) : ApiBaseController
     {
         // ═══════════════════════════════════════════════════════════════════════
