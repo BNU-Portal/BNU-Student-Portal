@@ -1,6 +1,5 @@
 using BNU_Student_Portal_Services_Implementation;
 using BNU_Student_Portal_Shared_Library.DTO_s.Auth;
-using BNU_Student_Portal_Shared_Library.SharedResponse;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -15,9 +14,10 @@ namespace BNU_Student_Portal_Presentation.Controllers
     // RESPONSE STRATEGY:
     // ──────────────────
     // Every action calls a service method that returns Result<T> or Result.
-    // We map the Result to an HTTP status code using ToHttpResponse():
+    // We delegate to ApiBaseController.HandleResult() which maps the Result
+    // to the appropriate HTTP status code using RFC 7807 Problem Details:
     //
-    //   IsSuccess                     → 200 OK          with value
+    //   IsSuccess                     → 200 OK (with value) / 204 No Content
     //   ErrorType.NotFound            → 404 Not Found
     //   ErrorType.Unauthorized        → 401 Unauthorized
     //   ErrorType.Forbidden           → 403 Forbidden
@@ -28,50 +28,8 @@ namespace BNU_Student_Portal_Presentation.Controllers
     //
     // ═══════════════════════════════════════════════════════════════════════════
 
-    [ApiController]
-    [Route("api/[controller]")]
-    public class AuthenticationController(IAuthenticationService authService) : ControllerBase
+    public class AuthenticationController(IAuthenticationService authService) : ApiBaseController
     {
-        // ── Private helper ───────────────────────────────────────────────────
-        // Maps a Result or Result<T> to the correct IActionResult.
-        // Centralised here so every action stays a clean one-liner.
-
-        private IActionResult ToHttpResponse(Result result)
-        {
-            if (result.IsSuccess)
-                return Ok(new { message = "Operation completed successfully." });
-
-            return MapErrors(result.Errors);
-        }
-
-        private IActionResult ToHttpResponse<T>(Result<T> result)
-        {
-            if (result.IsSuccess)
-                return Ok(result.GetValueOrThrow());
-
-            return MapErrors(result.Errors);
-        }
-
-        private IActionResult MapErrors(IReadOnlyCollection<Error> errors)
-        {
-            // If multiple errors exist they are all the same type (e.g. validation).
-            // Use the first error's type to decide the status code.
-            var first = errors.First();
-
-            return first.Type switch
-            {
-                ErrorType.NotFound           => NotFound(errors),
-                ErrorType.Unauthorized       => Unauthorized(errors),
-                ErrorType.InvalidCredentials => Unauthorized(errors),
-                ErrorType.Forbidden          => StatusCode(403, errors),
-                ErrorType.Validation         => UnprocessableEntity(errors),
-                ErrorType.BadRequest         => BadRequest(errors),
-                ErrorType.InternalServerError=> StatusCode(500, errors),
-                _                            => StatusCode(500, errors)
-            };
-        }
-
-
         // ═══════════════════════════════════════════════════════════════════════
         // LOGIN
         // ═══════════════════════════════════════════════════════════════════════
@@ -88,7 +46,7 @@ namespace BNU_Student_Portal_Presentation.Controllers
         [HttpPost("login")]
         [AllowAnonymous]
         public async Task<IActionResult> Login([FromBody] LoginDto dto)
-            => ToHttpResponse(await authService.LoginAsync(dto));
+            => HandleResult(await authService.LoginAsync(dto));
 
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -108,7 +66,7 @@ namespace BNU_Student_Portal_Presentation.Controllers
         [HttpPost("refresh")]
         [AllowAnonymous]
         public async Task<IActionResult> Refresh([FromBody] RefreshTokenDto dto)
-            => ToHttpResponse(await authService.RefreshTokenAsync(dto));
+            => HandleResult(await authService.RefreshTokenAsync(dto));
 
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -122,13 +80,13 @@ namespace BNU_Student_Portal_Presentation.Controllers
         /// POST /api/Authentication/revoke
         /// Body: "rawRefreshTokenString"   (plain string in quotes)
         ///
-        /// 200 → logged out successfully
+        /// 204 → logged out successfully
         /// 404 → token not found or already revoked
         /// </summary>
         [HttpPost("revoke")]
         [Authorize]
         public async Task<IActionResult> Revoke([FromBody] string rawRefreshToken)
-            => ToHttpResponse(await authService.RevokeRefreshTokenAsync(rawRefreshToken));
+            => HandleResult(await authService.RevokeRefreshTokenAsync(rawRefreshToken));
 
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -141,14 +99,14 @@ namespace BNU_Student_Portal_Presentation.Controllers
         /// POST /api/Authentication/register/student
         /// Body: RegisterStudentDto
         ///
-        /// 200 → registered successfully
+        /// 204 → registered successfully
         /// 400 → duplicate email
         /// 422 → validation errors (Identity password rules, etc.)
         /// </summary>
         [HttpPost("register/student")]
         [AllowAnonymous]
         public async Task<IActionResult> RegisterStudent([FromBody] RegisterStudentDto dto)
-            => ToHttpResponse(await authService.RegisterStudentAsync(dto));
+            => HandleResult(await authService.RegisterStudentAsync(dto));
 
         /// <summary>
         /// Registers a new professor account.
@@ -156,14 +114,14 @@ namespace BNU_Student_Portal_Presentation.Controllers
         /// POST /api/Authentication/register/professor
         /// Body: RegisterProfessorDto
         ///
-        /// 200 → registered successfully
+        /// 204 → registered successfully
         /// 400 → duplicate email
         /// 422 → validation errors
         /// </summary>
         [HttpPost("register/professor")]
         [AllowAnonymous]
         public async Task<IActionResult> RegisterProfessor([FromBody] RegisterProfessorDto dto)
-            => ToHttpResponse(await authService.RegisterProfessorAsync(dto));
+            => HandleResult(await authService.RegisterProfessorAsync(dto));
 
         /// <summary>
         /// Registers a new teaching assistant account.
@@ -171,14 +129,14 @@ namespace BNU_Student_Portal_Presentation.Controllers
         /// POST /api/Authentication/register/ta
         /// Body: RegisterTADto
         ///
-        /// 200 → registered successfully
+        /// 204 → registered successfully
         /// 400 → duplicate email
         /// 422 → validation errors
         /// </summary>
         [HttpPost("register/ta")]
         [AllowAnonymous]
         public async Task<IActionResult> RegisterTA([FromBody] RegisterTADto dto)
-            => ToHttpResponse(await authService.RegisterTAAsync(dto));
+            => HandleResult(await authService.RegisterTAAsync(dto));
 
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -193,14 +151,14 @@ namespace BNU_Student_Portal_Presentation.Controllers
         /// Body: { "currentPassword": "...", "newPassword": "..." }
         /// Header: Authorization: Bearer {accessToken}
         ///
-        /// 200 → password changed
+        /// 204 → password changed
         /// 401 → not authenticated or wrong current password
         /// 422 → Identity validation errors
         /// </summary>
         [HttpPost("password/change")]
         [Authorize]
         public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto)
-            => ToHttpResponse(await authService.ResetPasswordAsync(dto));
+            => HandleResult(await authService.ResetPasswordAsync(dto));
 
         /// <summary>
         /// Admin-only: resets any user's password back to their NationalId.
@@ -210,14 +168,14 @@ namespace BNU_Student_Portal_Presentation.Controllers
         /// Body: { "email": "..." }
         /// Header: Authorization: Bearer {adminAccessToken}
         ///
-        /// 200 → password reset to NationalId
+        /// 204 → password reset to NationalId
         /// 404 → user not found
         /// 422 → Identity validation errors
         /// </summary>
         [HttpPost("password/reset")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> AdminResetPassword([FromBody] AdminResetPasswordDto dto)
-            => ToHttpResponse(await authService.ResetPasswordAdminAsync(dto));
+            => HandleResult(await authService.ResetPasswordAdminAsync(dto));
 
 
         // ═══════════════════════════════════════════════════════════════════════
