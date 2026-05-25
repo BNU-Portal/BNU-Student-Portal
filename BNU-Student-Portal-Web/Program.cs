@@ -35,7 +35,7 @@ builder.Services.AddScoped<IDataInitializer, DataInitializer>();
 #endregion
 
 #region Application Services
-builder.Services.AddApplicationServices();
+builder.Services.AddApplicationServices(builder.Configuration);
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddHttpContextAccessor();
 #endregion

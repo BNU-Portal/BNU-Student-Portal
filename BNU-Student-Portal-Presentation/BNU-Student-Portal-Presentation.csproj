@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BNU-Student-Portal-Services-Implementation\BNU-Student-Portal-Services-Abstraction.csproj" />
+    <ProjectReference Include="..\BNU-Student-Portal-Services\BNU-Student-Portal-Services.csproj" />
   </ItemGroup>
 
 </Project>
