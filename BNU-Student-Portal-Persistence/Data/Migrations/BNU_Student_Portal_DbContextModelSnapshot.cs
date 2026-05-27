@@ -17,7 +17,7 @@ namespace BNU_Student_Portal_Persistence.Data.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.7")
+                .HasAnnotation("ProductVersion", "10.0.8")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -327,6 +327,277 @@ namespace BNU_Student_Portal_Persistence.Data.Migrations
                     b.ToTable("TeachingAssistants");
                 });
 
+            modelBuilder.Entity("BNU_Student_Portal_Domain.Entities.Courses.Course", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("CreditHours")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Courses");
+                });
+
+            modelBuilder.Entity("BNU_Student_Portal_Domain.Entities.Courses.CourseOffering", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CourseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProfessorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SemesterId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CourseId");
+
+                    b.HasIndex("ProfessorId");
+
+                    b.HasIndex("SemesterId");
+
+                    b.ToTable("CourseOfferings");
+                });
+
+            modelBuilder.Entity("BNU_Student_Portal_Domain.Entities.Courses.CourseSection", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CourseOfferingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SectionName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TeachingAssistantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CourseOfferingId");
+
+                    b.HasIndex("TeachingAssistantId");
+
+                    b.ToTable("CourseSections");
+                });
+
+            modelBuilder.Entity("BNU_Student_Portal_Domain.Entities.Discussions.Discussion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CourseSectionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("MaxScore")
+                        .HasColumnType("numeric");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CourseSectionId");
+
+                    b.ToTable("Discussions");
+                });
+
+            modelBuilder.Entity("BNU_Student_Portal_Domain.Entities.Grades.CourseGrade", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("AttendanceMaxScore")
+                        .HasColumnType("numeric");
+
+                    b.Property<bool>("AttendanceOverridden")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal>("AttendanceScore")
+                        .HasColumnType("numeric");
+
+                    b.Property<Guid>("EnrollmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("FinalExamScore")
+                        .HasColumnType("numeric");
+
+                    b.Property<bool>("HasAcademicWarning")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsPublished")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Midterm1Note")
+                        .HasColumnType("text");
+
+                    b.Property<decimal?>("Midterm1Score")
+                        .HasColumnType("numeric");
+
+                    b.Property<string>("Midterm2Note")
+                        .HasColumnType("text");
+
+                    b.Property<decimal?>("Midterm2Score")
+                        .HasColumnType("numeric");
+
+                    b.Property<string>("ProfNote")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EnrollmentId")
+                        .IsUnique();
+
+                    b.ToTable("CourseGrades");
+                });
+
+            modelBuilder.Entity("BNU_Student_Portal_Domain.Entities.Grades.DiscussionGrade", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CourseGradeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DiscussionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("Score")
+                        .HasColumnType("numeric");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CourseGradeId");
+
+                    b.HasIndex("DiscussionId");
+
+                    b.ToTable("DiscussionGrades");
+                });
+
+            modelBuilder.Entity("BNU_Student_Portal_Domain.Entities.Grades.QuizGrade", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CourseGradeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("QuizId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Score")
+                        .HasColumnType("numeric");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CourseGradeId");
+
+                    b.HasIndex("QuizId");
+
+                    b.ToTable("QuizGrades");
+                });
+
+            modelBuilder.Entity("BNU_Student_Portal_Domain.Entities.Quizzes.Quiz", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CourseSectionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("MaxScore")
+                        .HasColumnType("numeric");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CourseSectionId");
+
+                    b.ToTable("Quizzes");
+                });
+
+            modelBuilder.Entity("BNU_Student_Portal_Domain.Entities.Sections.StudentSectionEnrollment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CourseSectionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("EnrolledAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CourseSectionId");
+
+                    b.HasIndex("StudentId");
+
+                    b.ToTable("StudentSectionEnrollments");
+                });
+
+            modelBuilder.Entity("BNU_Student_Portal_Domain.Entities.Semesters.Semester", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Semesters");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
                 {
                     b.Property<string>("Id")
@@ -533,6 +804,142 @@ namespace BNU_Student_Portal_Persistence.Data.Migrations
                     b.Navigation("AppUser");
                 });
 
+            modelBuilder.Entity("BNU_Student_Portal_Domain.Entities.Courses.CourseOffering", b =>
+                {
+                    b.HasOne("BNU_Student_Portal_Domain.Entities.Courses.Course", "Course")
+                        .WithMany("Offerings")
+                        .HasForeignKey("CourseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BNU_Student_Portal_Domain.Entities.Auth.Professor", "Professor")
+                        .WithMany()
+                        .HasForeignKey("ProfessorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BNU_Student_Portal_Domain.Entities.Semesters.Semester", "Semester")
+                        .WithMany("CourseOfferings")
+                        .HasForeignKey("SemesterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Course");
+
+                    b.Navigation("Professor");
+
+                    b.Navigation("Semester");
+                });
+
+            modelBuilder.Entity("BNU_Student_Portal_Domain.Entities.Courses.CourseSection", b =>
+                {
+                    b.HasOne("BNU_Student_Portal_Domain.Entities.Courses.CourseOffering", "CourseOffering")
+                        .WithMany("Sections")
+                        .HasForeignKey("CourseOfferingId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BNU_Student_Portal_Domain.Entities.Auth.TeachingAssistant", "TeachingAssistant")
+                        .WithMany()
+                        .HasForeignKey("TeachingAssistantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CourseOffering");
+
+                    b.Navigation("TeachingAssistant");
+                });
+
+            modelBuilder.Entity("BNU_Student_Portal_Domain.Entities.Discussions.Discussion", b =>
+                {
+                    b.HasOne("BNU_Student_Portal_Domain.Entities.Courses.CourseSection", "CourseSection")
+                        .WithMany("Discussions")
+                        .HasForeignKey("CourseSectionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CourseSection");
+                });
+
+            modelBuilder.Entity("BNU_Student_Portal_Domain.Entities.Grades.CourseGrade", b =>
+                {
+                    b.HasOne("BNU_Student_Portal_Domain.Entities.Sections.StudentSectionEnrollment", "Enrollment")
+                        .WithOne("CourseGrade")
+                        .HasForeignKey("BNU_Student_Portal_Domain.Entities.Grades.CourseGrade", "EnrollmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Enrollment");
+                });
+
+            modelBuilder.Entity("BNU_Student_Portal_Domain.Entities.Grades.DiscussionGrade", b =>
+                {
+                    b.HasOne("BNU_Student_Portal_Domain.Entities.Grades.CourseGrade", "CourseGrade")
+                        .WithMany("DiscussionGrades")
+                        .HasForeignKey("CourseGradeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("BNU_Student_Portal_Domain.Entities.Discussions.Discussion", "Discussion")
+                        .WithMany("Grades")
+                        .HasForeignKey("DiscussionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CourseGrade");
+
+                    b.Navigation("Discussion");
+                });
+
+            modelBuilder.Entity("BNU_Student_Portal_Domain.Entities.Grades.QuizGrade", b =>
+                {
+                    b.HasOne("BNU_Student_Portal_Domain.Entities.Grades.CourseGrade", "CourseGrade")
+                        .WithMany("QuizGrades")
+                        .HasForeignKey("CourseGradeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("BNU_Student_Portal_Domain.Entities.Quizzes.Quiz", "Quiz")
+                        .WithMany("Grades")
+                        .HasForeignKey("QuizId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CourseGrade");
+
+                    b.Navigation("Quiz");
+                });
+
+            modelBuilder.Entity("BNU_Student_Portal_Domain.Entities.Quizzes.Quiz", b =>
+                {
+                    b.HasOne("BNU_Student_Portal_Domain.Entities.Courses.CourseSection", "CourseSection")
+                        .WithMany("Quizzes")
+                        .HasForeignKey("CourseSectionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CourseSection");
+                });
+
+            modelBuilder.Entity("BNU_Student_Portal_Domain.Entities.Sections.StudentSectionEnrollment", b =>
+                {
+                    b.HasOne("BNU_Student_Portal_Domain.Entities.Courses.CourseSection", "CourseSection")
+                        .WithMany("Enrollments")
+                        .HasForeignKey("CourseSectionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("BNU_Student_Portal_Domain.Entities.Auth.Student", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CourseSection");
+
+                    b.Navigation("Student");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
@@ -582,6 +989,52 @@ namespace BNU_Student_Portal_Persistence.Data.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("BNU_Student_Portal_Domain.Entities.Courses.Course", b =>
+                {
+                    b.Navigation("Offerings");
+                });
+
+            modelBuilder.Entity("BNU_Student_Portal_Domain.Entities.Courses.CourseOffering", b =>
+                {
+                    b.Navigation("Sections");
+                });
+
+            modelBuilder.Entity("BNU_Student_Portal_Domain.Entities.Courses.CourseSection", b =>
+                {
+                    b.Navigation("Discussions");
+
+                    b.Navigation("Enrollments");
+
+                    b.Navigation("Quizzes");
+                });
+
+            modelBuilder.Entity("BNU_Student_Portal_Domain.Entities.Discussions.Discussion", b =>
+                {
+                    b.Navigation("Grades");
+                });
+
+            modelBuilder.Entity("BNU_Student_Portal_Domain.Entities.Grades.CourseGrade", b =>
+                {
+                    b.Navigation("DiscussionGrades");
+
+                    b.Navigation("QuizGrades");
+                });
+
+            modelBuilder.Entity("BNU_Student_Portal_Domain.Entities.Quizzes.Quiz", b =>
+                {
+                    b.Navigation("Grades");
+                });
+
+            modelBuilder.Entity("BNU_Student_Portal_Domain.Entities.Sections.StudentSectionEnrollment", b =>
+                {
+                    b.Navigation("CourseGrade");
+                });
+
+            modelBuilder.Entity("BNU_Student_Portal_Domain.Entities.Semesters.Semester", b =>
+                {
+                    b.Navigation("CourseOfferings");
                 });
 #pragma warning restore 612, 618
         }

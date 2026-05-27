@@ -5,7 +5,7 @@ using BNU_Student_Portal_Domain.Entities.Sections;
 
 namespace BNU_Student_Portal_Domain.Entities.Courses;
 
-public class CourseSection
+public class CourseSection : BaseEntity<Guid>
 {
     public Guid CourseOfferingId { get; set; }
     public CourseOffering CourseOffering { get; set; } = default!;
