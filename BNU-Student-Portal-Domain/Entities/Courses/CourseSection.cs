@@ -1,0 +1,21 @@
+﻿using BNU_Student_Portal_Domain.Entities.Auth;
+using BNU_Student_Portal_Domain.Entities.Discussions;
+using BNU_Student_Portal_Domain.Entities.Quizzes;
+using BNU_Student_Portal_Domain.Entities.Sections;
+
+namespace BNU_Student_Portal_Domain.Entities.Courses;
+
+public class CourseSection
+{
+    public Guid CourseOfferingId { get; set; }
+    public CourseOffering CourseOffering { get; set; } = default!;
+
+    public string SectionName { get; set; } = default!;  // e.g. "Section 1"
+
+    public Guid TeachingAssistantId { get; set; }
+    public TeachingAssistant TeachingAssistant { get; set; } = default!;
+
+    public ICollection<StudentSectionEnrollment> Enrollments { get; set; } = new List<StudentSectionEnrollment>();
+    public ICollection<Quiz> Quizzes { get; set; } = new List<Quiz>();
+    public ICollection<Discussion> Discussions { get; set; } = new List<Discussion>();
+}
