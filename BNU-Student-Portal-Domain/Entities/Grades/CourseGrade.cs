@@ -2,22 +2,17 @@
 
 namespace BNU_Student_Portal_Domain.Entities.Grades;
 
- // The central grade record for one student in one section.
-    // Every score component lives here (midterms, attendance, final)
-    // or hangs off this entity (quiz grades, discussion grades).
-    //
-    // SCORE STRUCTURE (mirrors BNU business rules from Section 1):
-    //   Midterm1Score  max 15   (Professor only)
-    //   Midterm2Score  max 15   (Professor only)
-    //   AttendanceScore max 5   (auto from QR, overridable)
-    //   QuizGrades     variable (sum is part of coursework)
-    //   DiscussionGrades variable
-    //   ─── All of the above are normalized to /100 → CourseWork ───
-    //   FinalExamScore  max 100  (Professor only)
-    //   Total = CourseWork + FinalExam → /200
-    //
-    // IsPublished controls student visibility.
-    // HasAcademicWarning is a flag toggled by Prof/TA.
+// SCORE STRUCTURE (BNU business rules):
+//   Midterm1Score   max 15   ─┐
+//   Midterm2Score   max 15   ─┤ Midterms total /30
+//   AttendanceScore max 5    ─┤
+//   QuizGrades      sum /10  ─┤ CourseWork total /60
+//   DiscussionGrades sum /15 ─┘
+//   FinalExamScore  max 40
+//   Total = CourseWork(/60) + FinalExam(/40) = /100
+//
+//   IsPublished controls student visibility.
+//   HasAcademicWarning is toggled by Prof/TA.
     public class CourseGrade : BaseEntity<Guid>
     {
         public Guid                      EnrollmentId { get; set; }
