@@ -20,16 +20,16 @@ public class EnterGradeCommandHandler(IUnitOfWork _uow)
     public async Task<Result> Handle(EnterGradeCommand request, CancellationToken ct)
     {
         // ── Step 1: Resolve professor from JWT AppUserId ──────────────────────────
-        var professors = await _uow.GetRepository<Professor, Guid>().GetAllAsync();
+        var professors = await _uow.GetRepository<BNU_Student_Portal_Domain.Entities.Auth.Professor, Guid>().GetAllAsync();
         var professor  = professors.FirstOrDefault(p => p.AppUserId == request.CallerAppUserId);
         if (professor is null)
-            return Result.Fail(Error.NotFound("Grades.ProfessorNotFound", "Professor not found."));
+            return Result<object>.Fail(Error.NotFound("Grades.ProfessorNotFound", "Professor not found."));
 
         // ── Step 2: Load the grade record to update ───────────────────────────────
         var allGrades = await _uow.GetRepository<CourseGrade, Guid>().GetAllAsync();
         var grade     = allGrades.FirstOrDefault(g => g.Id == request.CourseGradeId);
         if (grade is null)
-            return Result.Fail(Error.NotFound("Grades.GradeNotFound", "Grade record not found."));
+            return Result<object>.Fail(Error.NotFound("Grades.GradeNotFound", "Grade record not found."));
 
         // ── Step 3: Verify ownership — walk grade → enrollment → section → offering
         // This prevents a professor from editing another professor's student grades.
@@ -42,12 +42,12 @@ public class EnterGradeCommandHandler(IUnitOfWork _uow)
         var offering   = offerings.FirstOrDefault(o => o.Id == section?.CourseOfferingId);
 
         if (offering?.ProfessorId != professor.Id)
-            return Result.Fail(Error.Forbidden("Grades.Forbidden",
+            return Result<object>.Fail(Error.Forbidden("Grades.Forbidden",
                 "This grade does not belong to your course."));
 
         // ── Step 4: Block edits on published grades — must unpublish first ─────────
         if (grade.IsPublished)
-            return Result.Fail(Error.BadRequest("Grades.AlreadyPublished",
+            return Result<object>.Fail(Error.BadRequest("Grades.AlreadyPublished",
                 "Unpublish this grade before making changes."));
 
         // ── Step 5: Load quiz/discussion totals to recompute AcademicWarning ──────
@@ -74,9 +74,9 @@ public class EnterGradeCommandHandler(IUnitOfWork _uow)
         grade.ProfNote           = request.ProfNote;
         grade.HasAcademicWarning = hasWarning;
 
-        await _uow.GetRepository<CourseGrade, Guid>().UpdateAsync(grade);
+        _uow.GetRepository<CourseGrade, Guid>().Update(grade);
         await _uow.SaveChangesAsync();
 
-        return Result.Ok();
+        return Result<object>.Ok("Grade updated successfully.");
     }
 }

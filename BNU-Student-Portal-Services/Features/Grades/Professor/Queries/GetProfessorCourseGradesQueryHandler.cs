@@ -26,7 +26,7 @@ public class GetProfessorCourseGradesQueryHandler(IUnitOfWork _uow)
         GetProfessorCourseGradesQuery request, CancellationToken ct)
     {
         // ── Step 1: Resolve professor from the AppUserId stored in the JWT claim ──
-        var professors = await _uow.GetRepository<Professor, Guid>().GetAllAsync();
+        var professors = await _uow.GetRepository<BNU_Student_Portal_Domain.Entities.Auth.Professor, Guid>().GetAllAsync();
         var professor  = professors.FirstOrDefault(p => p.AppUserId == request.CallerAppUserId);
         if (professor is null)
             return Result<ProfessorCourseGradesDto>.Fail(
@@ -48,7 +48,7 @@ public class GetProfessorCourseGradesQueryHandler(IUnitOfWork _uow)
         var sections    = await _uow.GetRepository<CourseSection, Guid>().GetAllAsync();
         var enrollments = await _uow.GetRepository<StudentSectionEnrollment, Guid>().GetAllAsync();
         var allGrades   = await _uow.GetRepository<CourseGrade, Guid>().GetAllAsync();
-        var students    = await _uow.GetRepository<Student, Guid>().GetAllAsync();
+        var students    = await _uow.GetRepository<BNU_Student_Portal_Domain.Entities.Auth.Student, Guid>().GetAllAsync();
         var quizGrades  = await _uow.GetRepository<QuizGrade, Guid>().GetAllAsync();
         var discGrades  = await _uow.GetRepository<DiscussionGrade, Guid>().GetAllAsync();
 

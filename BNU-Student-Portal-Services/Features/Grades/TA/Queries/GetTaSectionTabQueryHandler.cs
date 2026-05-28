@@ -4,6 +4,7 @@
 
 using BNU_Student_Portal_Domain.Entities.Auth;
 using BNU_Student_Portal_Domain.Entities.Courses;
+using BNU_Student_Portal_Domain.Entities.Sections;
 using BNU_Student_Portal_Domain.Entities.Semesters;
 using BNU_Student_Portal_Domain.Interfaces;
 using BNU_Student_Portal_Shared_Library.DTO_s.Sections;

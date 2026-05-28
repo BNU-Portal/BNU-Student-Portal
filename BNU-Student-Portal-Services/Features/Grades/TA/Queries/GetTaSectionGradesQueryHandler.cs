@@ -37,7 +37,7 @@ public class GetTaSectionGradesQueryHandler(IUnitOfWork _uow)
         var semesters   = await _uow.GetRepository<Semester, Guid>().GetAllAsync();
         var enrollments = await _uow.GetRepository<StudentSectionEnrollment, Guid>().GetAllAsync();
         var allGrades   = await _uow.GetRepository<CourseGrade, Guid>().GetAllAsync();
-        var students    = await _uow.GetRepository<Student, Guid>().GetAllAsync();
+        var students    = await _uow.GetRepository<BNU_Student_Portal_Domain.Entities.Auth.Student, Guid>().GetAllAsync();
         var quizGrades  = await _uow.GetRepository<QuizGrade, Guid>().GetAllAsync();
         var discGrades  = await _uow.GetRepository<DiscussionGrade, Guid>().GetAllAsync();
 

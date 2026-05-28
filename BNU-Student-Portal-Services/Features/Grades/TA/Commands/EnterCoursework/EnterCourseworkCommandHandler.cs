@@ -23,13 +23,13 @@ public class EnterCourseworkCommandHandler(IUnitOfWork _uow)
         var tas = await _uow.GetRepository<TeachingAssistant, Guid>().GetAllAsync();
         var ta  = tas.FirstOrDefault(t => t.AppUserId == request.CallerAppUserId);
         if (ta is null)
-            return Result.Fail(Error.NotFound("Grades.TaNotFound", "Teaching Assistant not found."));
+            return Result<object>.Fail(Error.NotFound("Grades.TaNotFound", "Teaching Assistant not found."));
 
         // ── Step 2: Load the parent grade record ──────────────────────────────────
         var allGrades = await _uow.GetRepository<CourseGrade, Guid>().GetAllAsync();
         var grade     = allGrades.FirstOrDefault(g => g.Id == request.CourseGradeId);
         if (grade is null)
-            return Result.Fail(Error.NotFound("Grades.GradeNotFound", "Grade record not found."));
+            return Result<object>.Fail(Error.NotFound("Grades.GradeNotFound", "Grade record not found."));
 
         // ── Step 3: Verify grade belongs to this TA's section ─────────────────────
         var enrollments = await _uow.GetRepository<StudentSectionEnrollment, Guid>().GetAllAsync();
@@ -39,12 +39,12 @@ public class EnterCourseworkCommandHandler(IUnitOfWork _uow)
         var section    = sections.FirstOrDefault(s => s.Id == enrollment?.CourseSectionId);
 
         if (section?.TeachingAssistantId != ta.Id)
-            return Result.Fail(Error.Forbidden("Grades.Forbidden",
+            return Result<object>.Fail(Error.Forbidden("Grades.Forbidden",
                 "This student is not in your section."));
 
         // ── Step 4: Block edits on published grades ────────────────────────────────
         if (grade.IsPublished)
-            return Result.Fail(Error.BadRequest("Grades.AlreadyPublished",
+            return Result<object>.Fail(Error.BadRequest("Grades.AlreadyPublished",
                 "Grade is published. Ask the professor to unpublish it before editing."));
 
         // ── Step 5: Update each QuizGrade child record ────────────────────────────
@@ -57,7 +57,7 @@ public class EnterCourseworkCommandHandler(IUnitOfWork _uow)
             if (quizGrade is null) continue;
 
             quizGrade.Score = item.Score;
-            await _uow.GetRepository<QuizGrade, Guid>().UpdateAsync(quizGrade);
+            _uow.GetRepository<QuizGrade, Guid>().Update(quizGrade);
         }
 
         // ── Step 6: Update each DiscussionGrade child record ──────────────────────
@@ -69,11 +69,11 @@ public class EnterCourseworkCommandHandler(IUnitOfWork _uow)
             if (discGrade is null) continue;
 
             discGrade.Score = item.Score;
-            await _uow.GetRepository<DiscussionGrade, Guid>().UpdateAsync(discGrade);
+             _uow.GetRepository<DiscussionGrade, Guid>().Update(discGrade);
         }
 
         // ── Step 7: Persist all changes in one transaction ────────────────────────
         await _uow.SaveChangesAsync();
-        return Result.Ok();
+        return Result<object>.Ok("Coursework scores updated successfully.");
     }
 }

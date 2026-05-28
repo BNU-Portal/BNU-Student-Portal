@@ -22,13 +22,13 @@ public class UpdateAttendanceCommandHandler(IUnitOfWork _uow)
         var tas = await _uow.GetRepository<TeachingAssistant, Guid>().GetAllAsync();
         var ta  = tas.FirstOrDefault(t => t.AppUserId == request.CallerAppUserId);
         if (ta is null)
-            return Result.Fail(Error.NotFound("Grades.TaNotFound", "Teaching Assistant not found."));
+            return Result<object>.Fail(Error.NotFound("Grades.TaNotFound", "Teaching Assistant not found."));
 
         // ── Step 2: Load the grade record ─────────────────────────────────────────
         var allGrades = await _uow.GetRepository<CourseGrade, Guid>().GetAllAsync();
         var grade     = allGrades.FirstOrDefault(g => g.Id == request.CourseGradeId);
         if (grade is null)
-            return Result.Fail(Error.NotFound("Grades.GradeNotFound", "Grade record not found."));
+            return Result<object>.Fail(Error.NotFound("Grades.GradeNotFound", "Grade record not found."));
 
         // ── Step 3: Verify grade belongs to a section assigned to this TA ─────────
         // Walk: grade → enrollment → section, then check section.TeachingAssistantId
@@ -39,21 +39,21 @@ public class UpdateAttendanceCommandHandler(IUnitOfWork _uow)
         var section    = sections.FirstOrDefault(s => s.Id == enrollment?.CourseSectionId);
 
         if (section?.TeachingAssistantId != ta.Id)
-            return Result.Fail(Error.Forbidden("Grades.Forbidden",
+            return Result<object>.Fail(Error.Forbidden("Grades.Forbidden",
                 "This student is not in your section."));
 
         // ── Step 4: Block edits on published grades ────────────────────────────────
         if (grade.IsPublished)
-            return Result.Fail(Error.BadRequest("Grades.AlreadyPublished",
+            return Result<object>.Fail(Error.BadRequest("Grades.AlreadyPublished",
                 "Grade is published. Ask the professor to unpublish it before editing."));
 
         // ── Step 5: Apply attendance update and persist ────────────────────────────
         grade.AttendanceScore      = request.AttendanceScore;
         grade.AttendanceOverridden = request.AttendanceOverridden;
 
-        await _uow.GetRepository<CourseGrade, Guid>().UpdateAsync(grade);
+        _uow.GetRepository<CourseGrade, Guid>().Update(grade);
         await _uow.SaveChangesAsync();
 
-        return Result.Ok();
+        return Result<object>.Ok("Attendance updated successfully.");
     }
 }
