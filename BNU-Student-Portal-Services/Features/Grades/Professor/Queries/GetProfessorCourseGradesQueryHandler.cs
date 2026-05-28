@@ -1,23 +1,9 @@
-﻿// FILE: Features/Grades/Professor/CourseGrades/Queries/GetProfessorCourseGradesQueryHandler.cs
+// FILE: Features/Grades/Professor/Queries/GetProfessorCourseGradesQueryHandler.cs
 // PURPOSE: Build the full grade sheet + distribution for one course offering.
-//
-// ProfessorCourseGradesDto { } properties:
-//   CourseOfferingId, CourseCode, CourseName, SemesterName,
-//   TotalStudents, SectionCount, AllPublished, Distribution, Students
-//
-// ProfessorGradeRowDto { } properties:
-//   CourseGradeId, StudentId, StudentName, StudentNationalId,
-//   SectionId, SectionName, Midterm1Score, Midterm2Score,
-//   AttendanceScore, AttendanceOverridden, FinalExamScore,
-//   CourseWorkScore, Total, LetterGrade, IsPublished,
-//   HasAcademicWarning, ProfNote
-//
-// GradeDistributionDto { } properties:
-//   TotalStudents, ACount, BCount, CCount, DCount, FCount,
-//   NotGradedCount, ClassAverage, SectionAverages
-//
-// SectionAverageDto { } properties:
-//   SectionId, SectionName, Average
+// FIX:     Removed broken GetRepository<AppUser, string>() call — AppUser extends
+//          IdentityUser, not BaseEntity<string>, so it cannot go through UoW.
+//          Student.Name is used directly (it exists on the Student entity).
+//          StudentNationalId is set to string.Empty — professor does not need it.
 
 using BNU_Student_Portal_Domain.Entities.Auth;
 using BNU_Student_Portal_Domain.Entities.Courses;
@@ -31,7 +17,7 @@ using BNU_Student_Portal_Shared_Library.DTO_s.Sections;
 using BNU_Student_Portal_Shared_Library.SharedResponse;
 using MediatR;
 
-namespace BNU_Student_Portal_Services.Features.Grades.Professor.CourseGrades.Queries;
+namespace BNU_Student_Portal_Services.Features.Grades.Professor.Queries;
 
 public class GetProfessorCourseGradesQueryHandler(IUnitOfWork _uow)
     : IRequestHandler<GetProfessorCourseGradesQuery, Result<ProfessorCourseGradesDto>>
@@ -39,14 +25,14 @@ public class GetProfessorCourseGradesQueryHandler(IUnitOfWork _uow)
     public async Task<Result<ProfessorCourseGradesDto>> Handle(
         GetProfessorCourseGradesQuery request, CancellationToken ct)
     {
-        // ── Step 1: Resolve professor ─────────────────────────────────────────
-        var professors = await _uow.GetRepository<BNU_Student_Portal_Domain.Entities.Auth.Professor, Guid>().GetAllAsync();
+        // ── Step 1: Resolve professor from the AppUserId stored in the JWT claim ──
+        var professors = await _uow.GetRepository<Professor, Guid>().GetAllAsync();
         var professor  = professors.FirstOrDefault(p => p.AppUserId == request.CallerAppUserId);
         if (professor is null)
             return Result<ProfessorCourseGradesDto>.Fail(
                 Error.NotFound("Grades.ProfessorNotFound", "Professor profile not found."));
 
-        // ── Step 2: Validate the offering exists AND belongs to this professor ─
+        // ── Step 2: Validate the offering exists AND belongs to this professor ────
         var offerings = await _uow.GetRepository<CourseOffering, Guid>().GetAllAsync();
         var offering  = offerings.FirstOrDefault(o =>
             o.Id == request.CourseOfferingId && o.ProfessorId == professor.Id);
@@ -54,104 +40,98 @@ public class GetProfessorCourseGradesQueryHandler(IUnitOfWork _uow)
             return Result<ProfessorCourseGradesDto>.Fail(
                 Error.NotFound("Grades.OfferingNotFound", "Course offering not found or not yours."));
 
-        // ── Step 3: Load all required tables ─────────────────────────────────
+        // ── Step 3: Load all required tables into memory ─────────────────────────
+        // NOTE: No AppUser table — AppUser extends IdentityUser, not BaseEntity<T>.
+        //       Student.Name is used directly for display names.
         var courses     = await _uow.GetRepository<Course, Guid>().GetAllAsync();
         var semesters   = await _uow.GetRepository<Semester, Guid>().GetAllAsync();
         var sections    = await _uow.GetRepository<CourseSection, Guid>().GetAllAsync();
         var enrollments = await _uow.GetRepository<StudentSectionEnrollment, Guid>().GetAllAsync();
         var allGrades   = await _uow.GetRepository<CourseGrade, Guid>().GetAllAsync();
-        var appUsers    = await _uow.GetRepository<AppUser, string>().GetAllAsync();
-        var students    = await _uow.GetRepository<BNU_Student_Portal_Domain.Entities.Auth.Student, Guid>().GetAllAsync();
+        var students    = await _uow.GetRepository<Student, Guid>().GetAllAsync();
         var quizGrades  = await _uow.GetRepository<QuizGrade, Guid>().GetAllAsync();
         var discGrades  = await _uow.GetRepository<DiscussionGrade, Guid>().GetAllAsync();
 
         var course   = courses.FirstOrDefault(c => c.Id == offering.CourseId);
         var semester = semesters.FirstOrDefault(s => s.Id == offering.SemesterId);
 
-        // ── Step 4: Get all sections for this offering ────────────────────────
-        var offeringSections = sections
-            .Where(s => s.CourseOfferingId == offering.Id)
-            .ToList();
-
+        // ── Step 4: Get all sections that belong to this offering ─────────────────
+        var offeringSections   = sections.Where(s => s.CourseOfferingId == offering.Id).ToList();
         var offeringSectionIds = offeringSections.Select(s => s.Id).ToHashSet();
 
-        // ── Step 5: Get all enrollments in those sections ─────────────────────
+        // ── Step 5: Get all enrollments in those sections ─────────────────────────
         var offeringEnrollments = enrollments
             .Where(e => offeringSectionIds.Contains(e.CourseSectionId))
             .ToList();
-
         var enrollmentIds = offeringEnrollments.Select(e => e.Id).ToHashSet();
 
-        // ── Step 6: Get all grade records for those enrollments ───────────────
+        // ── Step 6: Get all grade records for those enrollments ───────────────────
         var courseGrades = allGrades
             .Where(g => enrollmentIds.Contains(g.EnrollmentId))
             .ToList();
 
-        // ── Step 7: Build one ProfessorGradeRowDto per student ────────────────
+        // ── Step 7: Build one ProfessorGradeRowDto per CourseGrade record ─────────
         var studentRows = courseGrades.Select(grade =>
         {
-            // Walk back: grade → enrollment → section
+            // Walk back the chain: grade → enrollment → section → student
             var enrollment = offeringEnrollments.FirstOrDefault(e => e.Id == grade.EnrollmentId);
             var section    = offeringSections.FirstOrDefault(s => s.Id == enrollment?.CourseSectionId);
+            var student    = students.FirstOrDefault(s => s.Id == enrollment?.StudentId);
 
-            // Get student profile + AppUser for name and nationalId
-            var student = students.FirstOrDefault(s => s.Id == enrollment?.StudentId);
-            var appUser = appUsers.FirstOrDefault(u => u.Id == student?.AppUserId);
-
-            // Sum quiz and discussion scores for this grade record
+            // Sum all child quiz scores for this grade record
             var quizTotal = quizGrades
                 .Where(q => q.CourseGradeId == grade.Id)
                 .Sum(q => q.Score);
+
+            // Sum all child discussion scores for this grade record
             var discTotal = discGrades
                 .Where(d => d.CourseGradeId == grade.Id)
                 .Sum(d => d.Score);
 
-            // Compute the BNU formula totals
+            // Run the BNU scoring formula to get CourseWork subtotal and grand Total
             var (cw, total) = GradeCalculator.Calculate(
                 grade.Midterm1Score, grade.Midterm2Score,
                 discTotal, grade.AttendanceScore, quizTotal,
                 grade.FinalExamScore);
 
-            // Only show computed totals if a final exam score has been entered
+            // Totals are only meaningful once a FinalExamScore exists
             var hasTotal = grade.FinalExamScore.HasValue;
             var letter   = hasTotal ? GradeCalculator.GetLetterGrade(total) : null;
 
             return new ProfessorGradeRowDto
             {
-                CourseGradeId      = grade.Id,
-                StudentId          = student?.Id ?? Guid.Empty,
-                StudentName        = appUser?.Name ?? string.Empty,
-                StudentNationalId  = appUser?.NationalId ?? string.Empty,
-                SectionId          = section?.Id ?? Guid.Empty,
-                SectionName        = section?.SectionName ?? string.Empty,
-                Midterm1Score      = grade.Midterm1Score,
-                Midterm2Score      = grade.Midterm2Score,
-                AttendanceScore    = grade.AttendanceScore,
+                CourseGradeId        = grade.Id,
+                StudentId            = student?.Id ?? Guid.Empty,
+                StudentName          = student?.Name ?? string.Empty, // Student.Name — no AppUser needed
+                StudentNationalId    = string.Empty,                  // Professor does not see NationalId
+                SectionId            = section?.Id ?? Guid.Empty,
+                SectionName          = section?.SectionName ?? string.Empty, // confirmed: prop is SectionName
+                Midterm1Score        = grade.Midterm1Score,
+                Midterm2Score        = grade.Midterm2Score,
+                AttendanceScore      = grade.AttendanceScore,
                 AttendanceOverridden = grade.AttendanceOverridden,
-                FinalExamScore     = grade.FinalExamScore,
-                CourseWorkScore    = hasTotal ? cw    : null,
-                Total              = hasTotal ? total : null,
-                LetterGrade        = letter,
-                IsPublished        = grade.IsPublished,
-                HasAcademicWarning = grade.HasAcademicWarning,
-                ProfNote           = grade.ProfNote
+                FinalExamScore       = grade.FinalExamScore,
+                CourseWorkScore      = hasTotal ? cw    : null,
+                Total                = hasTotal ? total : null,
+                LetterGrade          = letter,
+                IsPublished          = grade.IsPublished,
+                HasAcademicWarning   = grade.HasAcademicWarning,
+                ProfNote             = grade.ProfNote
             };
         }).ToList();
 
-        // ── Step 8: Build distribution stats ─────────────────────────────────
+        // ── Step 8: Build grade distribution stats for the entire offering ─────────
         var gradedRows = studentRows.Where(r => r.LetterGrade is not null).ToList();
 
-        // Section averages: group published rows by section, average their Total
+        // Per-section average: only count students who have a computed Total
         var sectionAverages = offeringSections.Select(sec =>
         {
-            var sectionStudents = studentRows
+            var secStudents = studentRows
                 .Where(r => r.SectionId == sec.Id && r.Total.HasValue)
                 .ToList();
-
-            var avg = sectionStudents.Count > 0
-                ? sectionStudents.Average(r => r.Total!.Value)
+            var avg = secStudents.Count > 0
+                ? secStudents.Average(r => r.Total!.Value)
                 : (decimal?)null;
-
             return new SectionAverageDto
             {
                 SectionId   = sec.Id,
@@ -166,18 +146,18 @@ public class GetProfessorCourseGradesQueryHandler(IUnitOfWork _uow)
 
         var distribution = new GradeDistributionDto
         {
-            TotalStudents  = studentRows.Count,
-            ACount         = gradedRows.Count(r => r.LetterGrade == "A" || r.LetterGrade == "A+"),
-            BCount         = gradedRows.Count(r => r.LetterGrade!.StartsWith("B")),
-            CCount         = gradedRows.Count(r => r.LetterGrade!.StartsWith("C")),
-            DCount         = gradedRows.Count(r => r.LetterGrade!.StartsWith("D")),
-            FCount         = gradedRows.Count(r => r.LetterGrade == "F"),
-            NotGradedCount = studentRows.Count - gradedRows.Count,
-            ClassAverage   = classAverage,
+            TotalStudents   = studentRows.Count,
+            ACount          = gradedRows.Count(r => r.LetterGrade == "A" || r.LetterGrade == "A+"),
+            BCount          = gradedRows.Count(r => r.LetterGrade!.StartsWith("B")),
+            CCount          = gradedRows.Count(r => r.LetterGrade!.StartsWith("C")),
+            DCount          = gradedRows.Count(r => r.LetterGrade!.StartsWith("D")),
+            FCount          = gradedRows.Count(r => r.LetterGrade == "F"),
+            NotGradedCount  = studentRows.Count - gradedRows.Count,
+            ClassAverage    = classAverage,
             SectionAverages = sectionAverages
         };
 
-        // ── Step 9: Build and return the final response ───────────────────────
+        // ── Step 9: Assemble and return the full response DTO ─────────────────────
         return Result<ProfessorCourseGradesDto>.Ok(new ProfessorCourseGradesDto
         {
             CourseOfferingId = offering.Id,
