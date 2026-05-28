@@ -1,9 +1,49 @@
+// ============================================================
 // FILE: Features/Grades/TA/Queries/GetTaSectionGradesQueryHandler.cs
-// PURPOSE: Load the full grade list for a TA's section.
-//          Returns attendance, quiz total, and discussion total per student.
-//          Does NOT expose midterm or final exam scores — those are professor-only.
-// NOTE:    Student.Name used directly — AppUser is IdentityUser, cannot go through UoW.
-//          StudentNationalId set to string.Empty — TA does not need it.
+// LAYER: Application — CQRS Query Handler
+// ============================================================
+//
+// PURPOSE:
+//   Returns the full TA-visible grade sheet for every student in a section.
+//   Sums all quiz child records and discussion child records per student
+//   into totals — the TA sees the aggregate, not individual item scores.
+//
+// TABLES LOADED (all in-memory via UoW GetRepository):
+//
+//   TeachingAssistant     → verify caller identity
+//   CourseSection         → find section + verify TA ownership
+//   CourseOffering        → get course/semester context
+//   Course                → code + name for display
+//   Semester              → name for display
+//   StudentSectionEnrollment → all students in this section
+//   CourseGrade           → one per enrollment (attendance, published flag)
+//   Student               → student name (Student.Name direct field)
+//   QuizGrade             → child rows, summed per CourseGrade
+//   DiscussionGrade       → child rows, summed per CourseGrade
+//
+// FULL EXECUTION FLOW:
+//
+//   [1] Resolve TA → ta.Id
+//         Fail → 404
+//   [2] Load all 9 tables
+//   [3] Validate section: section.TeachingAssistantId == ta.Id
+//         Fail → 404 "Not assigned to you"
+//   [4] offering → course → semester (display context)
+//   [5] sectionEnrollments = all enrollments where CourseSectionId == section.Id
+//   [6] sectionGrades = allGrades where EnrollmentId in sectionEnrollments
+//   [7] For each grade record:
+//         a. Find matching enrollment → find Student by StudentId
+//         b. quizTotal  = sum of QuizGrade.Score where CourseGradeId == grade.Id
+//         c. discTotal  = sum of DiscussionGrade.Score where CourseGradeId == grade.Id
+//         d. Build TaGradeRowDto (NO midterm or final — TA does not see those)
+//   [8] Return TaSectionGradesDto { ..., Students: rows }
+//
+// PRIVACY NOTE:
+//   StudentNationalId = string.Empty — TAs do not have access to national ID.
+//   Student.Name is used directly (exists on domain entity, not AppUser).
+//   This avoids querying IdentityUser through the UoW (AppUser extends
+//   IdentityUser, not BaseEntity<T> — it cannot go through GetRepository).
+// ============================================================
 
 using BNU_Student_Portal_Domain.Entities.Auth;
 using BNU_Student_Portal_Domain.Entities.Courses;
@@ -42,7 +82,8 @@ public class GetTaSectionGradesQueryHandler(IUnitOfWork _uow)
         var discGrades  = await _uow.GetRepository<DiscussionGrade, Guid>().GetAllAsync();
 
         // ── Step 3: Validate section exists AND is assigned to this TA ────────────
-        // Security check: a TA must not be able to query another TA's section.
+        // Both conditions in one check: ID match + ownership.
+        // This prevents a TA from calling another TA's section ID.
         var section = sections.FirstOrDefault(s =>
             s.Id == request.SectionId && s.TeachingAssistantId == ta.Id);
         if (section is null)
@@ -61,6 +102,7 @@ public class GetTaSectionGradesQueryHandler(IUnitOfWork _uow)
         var enrollmentIds = sectionEnrollments.Select(e => e.Id).ToHashSet();
 
         // ── Step 6: Get grade records for those enrollments ───────────────────────
+        // Each enrollment has exactly one CourseGrade record.
         var sectionGrades = allGrades
             .Where(g => enrollmentIds.Contains(g.EnrollmentId))
             .ToList();
@@ -71,12 +113,13 @@ public class GetTaSectionGradesQueryHandler(IUnitOfWork _uow)
             var enrollment = sectionEnrollments.FirstOrDefault(e => e.Id == grade.EnrollmentId);
             var student    = students.FirstOrDefault(s => s.Id == enrollment?.StudentId);
 
-            // Sum all quiz child records for this CourseGrade
+            // Sum all quiz child records for this CourseGrade.
+            // QuizGrade rows are seeded when the section is created.
             var quizTotal = quizGrades
                 .Where(q => q.CourseGradeId == grade.Id)
                 .Sum(q => q.Score);
 
-            // Sum all discussion child records for this CourseGrade
+            // Sum all discussion child records for this CourseGrade.
             var discTotal = discGrades
                 .Where(d => d.CourseGradeId == grade.Id)
                 .Sum(d => d.Score);
@@ -85,8 +128,8 @@ public class GetTaSectionGradesQueryHandler(IUnitOfWork _uow)
             {
                 CourseGradeId        = grade.Id,
                 StudentId            = student?.Id ?? Guid.Empty,
-                StudentName          = student?.Name ?? string.Empty, // Student.Name — no AppUser needed
-                StudentNationalId    = string.Empty,                  // TA does not see NationalId
+                StudentName          = student?.Name ?? string.Empty, // Student.Name — no AppUser query needed
+                StudentNationalId    = string.Empty,                  // Privacy: TA does not see NationalId
                 AttendanceScore      = grade.AttendanceScore,
                 AttendanceOverridden = grade.AttendanceOverridden,
                 QuizTotal            = quizTotal,

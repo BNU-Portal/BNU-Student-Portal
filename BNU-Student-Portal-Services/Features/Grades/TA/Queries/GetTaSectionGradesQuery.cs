@@ -1,8 +1,47 @@
+// ============================================================
 // FILE: Features/Grades/TA/Queries/GetTaSectionGradesQuery.cs
-// PURPOSE: TA clicks their section tab → returns the full attendance/coursework
-//          grade list for all students in that section.
-//          The TA can only view/edit attendance, quiz scores, and discussion scores —
-//          NOT midterms or final exam (those are Professor-only).
+// LAYER: Application — CQRS Query (read-side)
+// ============================================================
+//
+// PURPOSE:
+//   When a TA clicks on their section tab, this query loads the full
+//   student grade list for that section — showing attendance, quiz totals,
+//   and discussion totals for every enrolled student.
+//
+// WHAT THE TA CAN SEE (read) vs. WHAT ONLY THE PROFESSOR SEES:
+//
+//   TA CAN SEE:                     PROFESSOR-ONLY:
+//   ─────────────────────────────   ──────────────────────
+//   AttendanceScore                 Midterm1Score
+//   AttendanceOverridden            Midterm2Score
+//   QuizTotal (summed)              FinalExamScore
+//   DiscussionTotal (summed)        IsPublished toggle
+//   HasAcademicWarning              ProfNote (write)
+//   ProfNote (read-only)            Full grade distribution
+//   StudentName                     StudentNationalId
+//
+// SECURITY:
+//   The handler verifies that the requested SectionId has
+//       CourseSection.TeachingAssistantId == ta.Id
+//   before returning any data. A TA cannot query another TA's section.
+//
+// FLOW:
+//
+//   TA clicks section tab
+//         │
+//         ▼
+//   GET /api/grades/ta/section-grades?sectionId={SectionId}
+//         │  JWT extracts CallerAppUserId
+//         ▼
+//   MediatR.Send(GetTaSectionGradesQuery(CallerAppUserId, SectionId))
+//         │
+//         ▼
+//   GetTaSectionGradesQueryHandler
+//         │  Returns TaSectionGradesDto with list of TaGradeRowDto
+//         ▼
+//   { SectionId, SectionName, CourseCode, CourseName, SemesterName,
+//     StudentCount, Students: [ TaGradeRowDto... ] }
+// ============================================================
 
 using BNU_Student_Portal_Shared_Library.DTO_s.Grades;
 using BNU_Student_Portal_Shared_Library.SharedResponse;
