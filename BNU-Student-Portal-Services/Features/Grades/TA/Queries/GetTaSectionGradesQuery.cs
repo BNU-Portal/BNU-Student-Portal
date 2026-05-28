@@ -25,12 +25,12 @@
 //       CourseSection.TeachingAssistantId == ta.Id
 //   before returning any data. A TA cannot query another TA's section.
 //
-// FLOW:
+// FLOW DIAGRAM:
 //
 //   TA clicks section tab
 //         │
 //         ▼
-//   GET /api/grades/ta/section-grades?sectionId={SectionId}
+//   GET /api/grades/ta/section/{sectionId}
 //         │  JWT extracts CallerAppUserId
 //         ▼
 //   MediatR.Send(GetTaSectionGradesQuery(CallerAppUserId, SectionId))

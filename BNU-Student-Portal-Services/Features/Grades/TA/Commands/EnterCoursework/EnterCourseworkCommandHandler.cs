@@ -129,7 +129,7 @@ public class EnterCourseworkCommandHandler(IUnitOfWork _uow)
             if (discGrade is null) continue;
 
             discGrade.Score = item.Score;
-             _uow.GetRepository<DiscussionGrade, Guid>().Update(discGrade);
+            _uow.GetRepository<DiscussionGrade, Guid>().Update(discGrade);
         }
 
         // ── Step 7: Persist all changes in one transaction ────────────────────────

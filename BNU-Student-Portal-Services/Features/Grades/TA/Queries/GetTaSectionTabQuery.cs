@@ -15,12 +15,12 @@
 //   This is a 1:1 relationship — a TA does not get to pick a section,
 //   they are assigned one by the admin.
 //
-// FLOW:
+// FLOW DIAGRAM:
 //
 //   TA opens Grades page
 //         │
 //         ▼
-//   GET /api/grades/ta/section-tab
+//   GET /api/grades/ta/section
 //         │  JWT extracts CallerAppUserId
 //         ▼
 //   MediatR.Send(GetTaSectionTabQuery(CallerAppUserId))

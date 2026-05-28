@@ -16,11 +16,11 @@
 //   Discussion    → max 15 pts  (split across multiple discussions)
 //
 // WHO CAN CALL THIS:
-//   Only a user with the "TA" role.
+//   Only a user with the "TeachingAssistant" role.
 //
-// FLOW:
+// FLOW DIAGRAM:
 //
-//   HTTP POST /api/grades/ta/coursework
+//   HTTP PUT /api/grades/ta/coursework
 //         │
 //         │  Body: {
 //         │    CourseGradeId,
@@ -39,11 +39,8 @@
 //         │  2. Load parent CourseGrade
 //         │  3. Verify section ownership
 //         │  4. Block if IsPublished
-//         │  5. For each QuizScoreItem → find QuizGrade where
-//         │        QuizGrade.Id == item.QuizGradeId
-//         │        && QuizGrade.CourseGradeId == grade.Id
-//         │     → set .Score and call Update()
-//         │  6. Same for each DiscussionScoreItem → DiscussionGrade
+//         │  5. For each QuizScoreItem → update QuizGrade
+//         │  6. For each DiscussionScoreItem → update DiscussionGrade
 //         │  7. SaveChangesAsync() — one transaction for all items
 //         ▼
 //   Result.Ok("Coursework scores updated successfully.")

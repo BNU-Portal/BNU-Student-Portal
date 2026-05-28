@@ -12,7 +12,7 @@
 //
 // SECURITY MODEL:
 //
-//   JWT (TA role) → CallerAppUserId
+//   JWT (TeachingAssistant role) → CallerAppUserId
 //         │
 //         ▼
 //   TeachingAssistant table  →  ta.Id

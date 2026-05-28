@@ -15,12 +15,12 @@
 // MAX SCORE: 5 pts — enforced at the controller validator level (FluentValidation).
 //
 // WHO CAN CALL THIS:
-//   Only a user with the "TA" role. The controller extracts CallerAppUserId
+//   Only a user with the "TeachingAssistant" role. The controller extracts CallerAppUserId
 //   from the JWT NameIdentifier claim and passes it in.
 //
-// FLOW:
+// FLOW DIAGRAM:
 //
-//   HTTP PATCH /api/grades/ta/attendance
+//   HTTP PUT /api/grades/ta/attendance
 //         │
 //         │  Body: { CourseGradeId, AttendanceScore, AttendanceOverridden }
 //         ▼

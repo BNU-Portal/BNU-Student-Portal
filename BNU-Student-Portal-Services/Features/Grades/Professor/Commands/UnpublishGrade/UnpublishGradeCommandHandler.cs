@@ -2,6 +2,15 @@
 // PURPOSE: Verify professor owns the grade, check it is currently published,
 //          then set IsPublished = false.
 // NOTE:    CourseGrade is a class — mutate directly, no 'with'.
+//
+// FLOW SUMMARY:
+// Resolve professor -> find grade -> ownership check -> guard if already unpublished
+// -> set IsPublished = false -> save
+//
+// DIAGRAM:
+// Professor(AppUserId)
+//   -> Grade -> Enrollment -> Section -> Offering (ownership)
+//   -> Unpublish -> Save
 
 using BNU_Student_Portal_Domain.Entities.Auth;
 using BNU_Student_Portal_Domain.Entities.Courses;
@@ -50,7 +59,7 @@ public class UnpublishGradeCommandHandler(IUnitOfWork _uow)
 
         // ── Step 5: Unpublish and persist ──────────────────────────────────────────
         grade.IsPublished = false;
-         _uow.GetRepository<CourseGrade, Guid>().Update(grade);
+        _uow.GetRepository<CourseGrade, Guid>().Update(grade);
         await _uow.SaveChangesAsync();
 
         return Result<object>.Ok("Grade unpublished successfully.");

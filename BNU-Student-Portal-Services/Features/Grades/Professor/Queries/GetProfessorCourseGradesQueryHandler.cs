@@ -4,6 +4,17 @@
 //          IdentityUser, not BaseEntity<string>, so it cannot go through UoW.
 //          Student.Name is used directly (it exists on the Student entity).
 //          StudentNationalId is set to string.Empty — professor does not need it.
+//
+// FLOW SUMMARY:
+// Resolve professor -> validate offering ownership -> load tables -> build rows
+// -> compute distribution and averages -> return ProfessorCourseGradesDto
+//
+// DIAGRAM:
+// Professor(AppUserId)
+//   -> Offering (ownership check)
+//      -> Sections -> Enrollments -> CourseGrades
+//      -> Quiz/Discussion -> GradeCalculator
+//   -> ProfessorCourseGradesDto + Distribution
 
 using BNU_Student_Portal_Domain.Entities.Auth;
 using BNU_Student_Portal_Domain.Entities.Courses;

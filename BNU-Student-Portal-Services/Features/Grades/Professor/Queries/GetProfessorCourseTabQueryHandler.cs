@@ -11,6 +11,14 @@ namespace BNU_Student_Portal_Services.Features.Grades.Professor.Queries;
 public class GetProfessorCourseTabQueryHandler(IUnitOfWork _uow)
     : IRequestHandler<GetProfessorCourseTabQuery, Result<IEnumerable<ProfessorCourseTabDto>>>
 {
+    // FLOW SUMMARY:
+    // Resolve professor -> filter offerings -> aggregate sections/enrollments/grades
+    // -> compute publish/pending status -> return tab DTOs
+    //
+    // DIAGRAM:
+    // Professor(AppUserId)
+    //   -> Offerings -> Sections -> Enrollments -> CourseGrades
+    //   -> ProfessorCourseTabDto
     public async Task<Result<IEnumerable<ProfessorCourseTabDto>>> Handle(
         GetProfessorCourseTabQuery request, CancellationToken ct)
     {

@@ -14,6 +14,15 @@ namespace BNU_Student_Portal_Services.Features.Grades.Student.GradesPerSemester.
 public class GetStudentGradesBySemesterQueryHandler(IUnitOfWork _uow)
     : IRequestHandler<GetStudentGradesBySemesterQuery, Result<StudentSemesterSummaryDto>>
 {
+    // FLOW SUMMARY:
+    // Resolve student -> validate semester -> load data -> build rows
+    // -> compute GPA stats -> return summary DTO
+    //
+    // DIAGRAM:
+    // Student(AppUserId)
+    //   -> Enrollments -> Sections -> Offerings (filter SemesterId)
+    //   -> CourseGrades -> (Quiz/Discussion) -> GradeCalculator
+    //   -> StudentSemesterSummaryDto
     public async Task<Result<StudentSemesterSummaryDto>> Handle(
         GetStudentGradesBySemesterQuery request, CancellationToken ct)
     {

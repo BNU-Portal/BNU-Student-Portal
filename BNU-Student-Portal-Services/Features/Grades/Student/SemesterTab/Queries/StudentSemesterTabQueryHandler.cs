@@ -11,6 +11,15 @@ namespace BNU_Student_Portal_Services.Features.Grades.Student.SemesterTab.Querie
 public class StudentSemesterTabQueryHandler(IUnitOfWork _uow)
     : IRequestHandler<StudentSemesterTabQuery, Result<IEnumerable<SemesterTabDto>>>
 {
+    // FLOW SUMMARY:
+    // Resolve student -> walk enrollments -> derive semester IDs -> map to tabs
+    //
+    // DIAGRAM:
+    // Student(AppUserId)
+    //   -> Enrollments
+    //      -> Sections
+    //         -> Offerings
+    //            -> Semesters -> SemesterTabDto
     public async Task<Result<IEnumerable<SemesterTabDto>>> Handle(
         StudentSemesterTabQuery request, CancellationToken ct)
     {

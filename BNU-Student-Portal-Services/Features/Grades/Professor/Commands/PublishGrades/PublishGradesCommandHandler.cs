@@ -2,6 +2,15 @@
 // PURPOSE: Validate offering ownership, find all unpublished grades that have a
 //          FinalExamScore, set IsPublished = true on each, then save once.
 // NOTE:    CourseGrade is a class — mutate directly, no 'with'.
+//
+// FLOW SUMMARY:
+// Resolve professor -> validate offering -> collect enrollmentIds -> filter grades
+// -> mark published -> save
+//
+// DIAGRAM:
+// Professor(AppUserId)
+//   -> Offering -> Sections -> Enrollments -> CourseGrades
+//   -> Publish -> Save
 
 using BNU_Student_Portal_Domain.Entities.Auth;
 using BNU_Student_Portal_Domain.Entities.Courses;

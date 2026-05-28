@@ -3,6 +3,15 @@
 //          state, recompute AcademicWarning using GradeCalculator, then persist.
 // NOTE:    CourseGrade is a class (not a record) — use direct property mutation,
 //          NOT the 'with' expression.
+//
+// FLOW SUMMARY:
+// Resolve professor -> find grade -> verify ownership -> block if published
+// -> compute total -> set warning -> update and save
+//
+// DIAGRAM:
+// Professor(AppUserId)
+//   -> Grade -> Enrollment -> Section -> Offering (ownership)
+//   -> GradeCalculator -> Update -> Save
 
 using BNU_Student_Portal_Domain.Entities.Auth;
 using BNU_Student_Portal_Domain.Entities.Courses;

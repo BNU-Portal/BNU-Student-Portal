@@ -2,6 +2,12 @@
 // PURPOSE: Professor enters or updates Midterm1, Midterm2, FinalExam scores
 //          and an optional note for a single student's CourseGrade record.
 //          AcademicWarning is auto-computed in the handler — not set by the caller.
+//
+// FLOW DIAGRAM:
+// [PUT /api/grades/professor/grade]
+//    -> [EnterGradeCommand]
+//    -> [EnterGradeCommandHandler]
+//    -> updates CourseGrade fields and warning flag
 
 using BNU_Student_Portal_Shared_Library.SharedResponse;
 using MediatR;

@@ -20,6 +20,18 @@
 //   PUT  /api/grades/ta/attendance                  → C4 update attendance
 //   PUT  /api/grades/ta/coursework                  → C5 enter quiz/discussion scores
 
+// END-TO-END FLOW (one student, one course):
+// Admin: CreateSemester -> ActivateSemester -> CreateCourseOffering -> CreateCourseSection -> EnrollStudent
+// TA:    GetTaSectionTab -> GetTaSectionGrades -> UpdateAttendance / EnterCoursework
+// Prof:  GetProfessorCourseTab -> GetProfessorCourseGrades -> EnterGrade -> PublishGrades
+// Student: GetStudentSemesterTabs -> GetStudentGradesBySemester (only after publish)
+//
+// DIAGRAM (data visibility):
+// [TA updates attendance/coursework] --(unpublished)--> [Professor enters midterms/final]
+//        |                                                   |
+//        v                                                   v
+//   [CourseGrade] -----------------(PublishGrades)--------> [Student view]
+
 using BNU_Student_Portal_Services.Features.Grades.Professor.Commands.EnterGrade;
 using BNU_Student_Portal_Services.Features.Grades.Professor.Commands.PublishGrades;
 using BNU_Student_Portal_Services.Features.Grades.Professor.Commands.UnpublishGrade;

@@ -2,6 +2,10 @@
 
 public static class GradeCalculator
 {
+    // FLOW DIAGRAM (calculation pipeline):
+    // scores -> Calculate(cw,total) -> GetLetterGrade(total) -> GetGpaPoints(letter)
+    //         -> CalculateGpa(list of published totals)
+
     // BNU business rules — locked
     public const decimal MidtermMax    = 30m;   // 15 + 15
     public const decimal DiscussionMax = 15m;
