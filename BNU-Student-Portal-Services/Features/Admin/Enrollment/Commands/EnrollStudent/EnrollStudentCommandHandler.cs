@@ -1,6 +1,16 @@
 // FILE: Features/Admin/Enrollment/Commands/EnrollStudent/EnrollStudentCommandHandler.cs
 // PURPOSE: Creates a StudentSectionEnrollment + blank CourseGrade in one transaction.
 //          This is the minimal setup required before any Grades endpoint can be tested.
+//
+// IMPLEMENTATION FLOW:
+// 1) Validate Student and CourseSection exist.
+// 2) Prevent duplicate enrollment for same student/section.
+// 3) Create StudentSectionEnrollment.
+// 4) Create CourseGrade with default values (scores zero, unpublished).
+// 5) Save once and return both IDs.
+//
+// DIAGRAM:
+// Validate -> Check Duplicate -> Create Enrollment -> Create Grade -> Save -> Return
 
 using BNU_Student_Portal_Domain.Entities.Auth;
 using BNU_Student_Portal_Domain.Entities.Courses;

@@ -1,4 +1,14 @@
 // FILE: Features/Admin/Semester/Queries/GetAllSemesters/GetAllSemestersQueryHandler.cs
+// PURPOSE: Fetch all semesters, sort by StartDate desc, map to SemesterDto.
+//
+// IMPLEMENTATION FLOW:
+// 1) Load all Semester rows.
+// 2) Order by StartDate descending.
+// 3) Map each row to SemesterDto.
+// 4) Return list.
+//
+// DIAGRAM:
+// Load -> Sort -> Map -> Return
 
 using BNU_Student_Portal_Domain.Entities.Semesters;
 using BNU_Student_Portal_Domain.Interfaces;

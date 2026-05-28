@@ -1,6 +1,15 @@
 // FILE: Features/Admin/CourseSection/Commands/CreateCourseSection/CreateCourseSectionCommandHandler.cs
 // PURPOSE: Validates FKs then creates a CourseSection.
 //          SemesterId is copied from the CourseOffering (immutable after creation).
+//
+// IMPLEMENTATION FLOW:
+// 1) Validate CourseOffering exists.
+// 2) Validate TeachingAssistant exists.
+// 3) Copy SemesterId from CourseOffering to section.
+// 4) Persist CourseSection and return Id.
+//
+// DIAGRAM:
+// Validate FKs -> Copy SemesterId -> Create -> Save -> Return Id
 
 using BNU_Student_Portal_Domain.Entities.Auth;
 using BNU_Student_Portal_Domain.Entities.Courses;

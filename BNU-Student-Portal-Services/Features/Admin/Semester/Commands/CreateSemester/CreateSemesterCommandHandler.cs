@@ -1,5 +1,14 @@
 // FILE: Features/Admin/Semester/Commands/CreateSemester/CreateSemesterCommandHandler.cs
 // PURPOSE: Persists a new Semester row. IsActive = false by default.
+//
+// IMPLEMENTATION FLOW:
+// 1) Validate dates (EndDate > StartDate).
+// 2) Create Semester entity with IsActive = false.
+// 3) Add via UoW repository and SaveChanges.
+// 4) Return SemesterId to the caller.
+//
+// DIAGRAM:
+// Validate -> Build Entity -> Add -> Save -> Return Id
 
 using BNU_Student_Portal_Domain.Entities.Semesters;
 using BNU_Student_Portal_Domain.Interfaces;

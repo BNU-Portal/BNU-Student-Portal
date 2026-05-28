@@ -2,6 +2,14 @@
 // FIX: AppUser inherits IdentityUser (string key) NOT BaseEntity<string>,
 //      so IUnitOfWork.GetRepository<AppUser, string>() violates the generic constraint.
 //      Solution: inject UserManager<AppUser> to look up professor display names instead.
+//
+// IMPLEMENTATION FLOW:
+// 1) Load CourseOfferings, Courses, Semesters, Professors.
+// 2) For each offering, resolve the AppUser for professor name via UserManager.
+// 3) Map to CourseOfferingDto list.
+//
+// DIAGRAM:
+// Load -> Join/Lookup -> Map -> Return
 
 using BNU_Student_Portal_Domain.Entities.Auth;
 using BNU_Student_Portal_Domain.Entities.Courses;

@@ -1,4 +1,11 @@
 // FILE: Features/Admin/CourseOffering/Queries/GetAllCourseOfferings/GetAllCourseOfferingsQuery.cs
+// PURPOSE: Admin lists all offerings with course, semester, and professor names.
+//
+// FLOW DIAGRAM:
+// [GET /api/admin/course-offerings]
+//    -> [GetAllCourseOfferingsQuery]
+//    -> [GetAllCourseOfferingsQueryHandler]
+//    -> returns CourseOfferingDto list
 
 using BNU_Student_Portal_Shared_Library.DTO_s.Admin;
 using BNU_Student_Portal_Shared_Library.SharedResponse;

@@ -1,4 +1,14 @@
 // FILE: Features/Admin/Semester/Queries/GetActiveSemester/GetActiveSemesterQueryHandler.cs
+// PURPOSE: Find the single Semester with IsActive = true and return it as a DTO.
+//
+// IMPLEMENTATION FLOW:
+// 1) Load all semesters.
+// 2) Find the first active one.
+// 3) Return 404 if none.
+// 4) Map to SemesterDto and return.
+//
+// DIAGRAM:
+// Load -> Find Active -> Map -> Return
 
 using BNU_Student_Portal_Domain.Entities.Semesters;
 using BNU_Student_Portal_Domain.Interfaces;

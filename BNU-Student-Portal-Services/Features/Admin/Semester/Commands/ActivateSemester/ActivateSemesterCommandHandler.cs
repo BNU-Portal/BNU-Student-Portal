@@ -1,5 +1,14 @@
 // FILE: Features/Admin/Semester/Commands/ActivateSemester/ActivateSemesterCommandHandler.cs
 // PURPOSE: Sets target semester IsActive = true, all others IsActive = false.
+//
+// IMPLEMENTATION FLOW:
+// 1) Load all semesters.
+// 2) Find target semester by id (404 if not found).
+// 3) Loop all semesters and flip IsActive based on target.
+// 4) Save changes once.
+//
+// DIAGRAM:
+// Load -> Find Target -> Toggle All -> Save
 
 using BNU_Student_Portal_Domain.Entities.Semesters;
 using BNU_Student_Portal_Domain.Interfaces;

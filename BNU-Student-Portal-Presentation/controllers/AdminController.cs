@@ -11,6 +11,21 @@
 //   POST   /api/admin/course-sections               -> Create section under offering
 //   POST   /api/admin/enrollments                   -> Enroll student in section
 
+// SETUP FLOW (recommended order for Grades data):
+// 1) CreateSemester
+// 2) ActivateSemester
+// 3) CreateCourseOffering
+// 4) CreateCourseSection
+// 5) EnrollStudent
+//
+// FLOW DIAGRAM (high level):
+// [Admin Client]
+//    |
+//    v
+// [AdminController] -> [MediatR] -> [Feature Handler] -> [UoW/Repo] -> [DB]
+//    ^--------------------------------------------------------------------|
+//    Result<T> returns to caller with IDs for the next step
+
 using BNU_Student_Portal_Services.Features.Admin.CourseOffering.Commands.CreateCourseOffering;
 using BNU_Student_Portal_Services.Features.Admin.CourseOffering.Queries.GetAllCourseOfferings;
 using BNU_Student_Portal_Services.Features.Admin.CourseSection.Commands.CreateCourseSection;

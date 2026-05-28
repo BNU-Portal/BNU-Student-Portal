@@ -1,5 +1,14 @@
 // FILE: Features/Admin/CourseOffering/Commands/CreateCourseOffering/CreateCourseOfferingCommandHandler.cs
 // PURPOSE: Validates all FKs exist then persists a new CourseOffering row.
+//
+// IMPLEMENTATION FLOW:
+// 1) Validate Course, Semester, Professor exist.
+// 2) Ensure no duplicate (CourseId + SemesterId + ProfessorId).
+// 3) Create CourseOffering entity and persist.
+// 4) Return new CourseOfferingId.
+//
+// DIAGRAM:
+// Validate FKs -> Check Duplicate -> Create -> Save -> Return Id
 
 using BNU_Student_Portal_Domain.Entities.Auth;
 using BNU_Student_Portal_Domain.Entities.Courses;
