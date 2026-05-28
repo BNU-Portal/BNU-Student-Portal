@@ -17,6 +17,7 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.7" />
     <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.9" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.7" />
+    <PackageReference Include="QuestPDF" Version="2026.5.0" />
     <PackageReference Include="StackExchange.Redis" Version="2.12.14" />
   </ItemGroup>
 
@@ -26,8 +27,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Features\Grades\Commands\" />
-    <Folder Include="Features\Grades\Queries\" />
+    <Folder Include="Features\Grades\Student\" />
   </ItemGroup>
 
 </Project>
