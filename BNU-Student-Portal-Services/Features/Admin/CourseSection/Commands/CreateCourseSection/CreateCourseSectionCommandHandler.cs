@@ -8,8 +8,34 @@
 // 3) Copy SemesterId from CourseOffering to section.
 // 4) Persist CourseSection and return Id.
 //
-// DIAGRAM:
-// Validate FKs -> Copy SemesterId -> Create -> Save -> Return Id
+// DETAILED FLOW DIAGRAM:
+//
+//   [Admin Request: Create Section]
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Validate Parents     | <--- | 1. Does CourseOffering exist?           |
+//   | (FK Verification)    |      | 2. Does TeachingAssistant exist?         |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Inherit SemesterId   | <--- | Copy SemesterId FROM CourseOffering     |
+//   | (Data Consistency)   |      | TO CourseSection (Ensures alignment)    |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+
+//   | Entity Construction  | --- Create Section with request data + inherited ID
+//   +----------------------+
+//            |
+//            v
+//   +----------------------+
+//   | SQL Database Insert  | <-- INSERT INTO CourseSections (...)
+//   +----------------------+
+//            |
+//            v
+//   [200 OK: Section Created]
 
 using BNU_Student_Portal_Domain.Entities.Auth;
 using BNU_Student_Portal_Domain.Entities.Courses;

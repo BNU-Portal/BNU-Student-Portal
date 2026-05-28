@@ -9,8 +9,43 @@
 // 4) Create CourseGrade with default values (scores zero, unpublished).
 // 5) Save once and return both IDs.
 //
-// DIAGRAM:
-// Validate -> Check Duplicate -> Create Enrollment -> Create Grade -> Save -> Return
+// DETAILED FLOW DIAGRAM:
+//
+//   [Admin Request: Enroll Student]
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Validate Identities  | <--- | 1. Does Student exist?                  |
+//   | (FK Verification)    |      | 2. Does CourseSection exist?            |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Uniqueness Check     | <--- | SELECT * FROM Enrollments               |
+//   | (Duplicate Guard)    |      | WHERE StudentId=@S AND SectionId=@Sec   |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            +---> [Exists?] --- (YES) --> [400 Validation Error]
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Create Enrollment    | ---| INSERT INTO StudentSectionEnrollments    |
+//   | Row                  |      | (Links student to a specific section)   |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Create Grade Record  | ---| INSERT INTO CourseGrades                |
+//   | (Default State)      |      | (Placeholder for midterm/final/etc)     |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+
+//   | SQL Database Commit  | <-- Atomic Save (Both rows or nothing)
+//   +----------------------+
+//            |
+//            v
+//   [200 OK: Enrollment Complete]
 
 using BNU_Student_Portal_Domain.Entities.Auth;
 using BNU_Student_Portal_Domain.Entities.Courses;

@@ -7,10 +7,43 @@
 // Resolve professor -> find grade -> ownership check -> guard if already unpublished
 // -> set IsPublished = false -> save
 //
-// DIAGRAM:
-// Professor(AppUserId)
-//   -> Grade -> Enrollment -> Section -> Offering (ownership)
-//   -> Unpublish -> Save
+// DETAILED FLOW DIAGRAM:
+//
+//   [Unpublish Request] --> (CourseGradeId)
+//            |
+//            v
+//   +----------------------+
+//   | Fetch Professor      | <-- (Identity Verification via JWT)
+//   +----------------------+
+//            |
+//            v
+//   +----------------------+
+//   | Fetch CourseGrade    | <-- SELECT * FROM CourseGrades WHERE Id = @Id
+//   +----------------------+
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Ownership Validation | <--- | Enrollment -> Section -> Offering       |
+//   | (Is this mine?)      |      | Check: Offering.ProfessorId == Prof.Id  |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+
+//   | State Guard          | --- [!IsPublished?] --- (YES) --> [400 AlreadyUnpublished]
+//   +----------------------+          |
+//            |                      (NO)
+//            v                        |
+//   +----------------------+          v
+//   | Mutation             | --- grade.IsPublished = false
+//   +----------------------+
+//            |
+//            v
+//   +----------------------+
+//   | SQL Database Sync    | <-- UPDATE CourseGrades SET IsPublished = 0 ...
+//   +----------------------+
+//            |
+//            v
+//   [200 OK: Grade Unpublished]
 
 using BNU_Student_Portal_Domain.Entities.Auth;
 using BNU_Student_Portal_Domain.Entities.Courses;

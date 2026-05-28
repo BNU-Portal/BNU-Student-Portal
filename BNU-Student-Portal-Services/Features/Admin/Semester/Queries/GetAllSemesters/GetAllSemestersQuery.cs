@@ -5,6 +5,9 @@
 // [GET /api/admin/semesters]
 //    -> [GetAllSemestersQuery]
 //    -> [GetAllSemestersQueryHandler]
+//         | load semesters
+//         | order by StartDate desc
+//         | map to SemesterDto
 //    -> returns ordered SemesterDto list
 
 using BNU_Student_Portal_Shared_Library.DTO_s.Admin;

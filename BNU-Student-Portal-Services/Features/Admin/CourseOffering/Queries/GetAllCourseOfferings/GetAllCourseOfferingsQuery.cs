@@ -5,6 +5,8 @@
 // [GET /api/admin/course-offerings]
 //    -> [GetAllCourseOfferingsQuery]
 //    -> [GetAllCourseOfferingsQueryHandler]
+//         | load offerings + lookup course/semester/professor
+//         | map to CourseOfferingDto
 //    -> returns CourseOfferingDto list
 
 using BNU_Student_Portal_Shared_Library.DTO_s.Admin;

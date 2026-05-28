@@ -10,42 +10,45 @@
 //     - Updates each QuizGrade and DiscussionGrade child row by its ID
 //     - Saves all changes in a single transaction
 //
-// FULL EXECUTION FLOW:
+// DETAILED FLOW DIAGRAM:
 //
-//   EnterCourseworkCommand arrives
-//         │
-//         ▼
-//   [1] Resolve TA (AppUserId → TeachingAssistant row)
-//         │  Fail → 404 "TA not found"
-//         ▼
-//   [2] Load CourseGrade by CourseGradeId
-//         │  Fail → 404 "Grade record not found"
-//         ▼
-//   [3] Section ownership check:
-//         CourseGrade.EnrollmentId
-//             → StudentSectionEnrollment.CourseSectionId
-//                 → CourseSection.TeachingAssistantId  == ta.Id?
-//         Mismatch → 403 Forbidden
-//         ▼
-//   [4] Publish gate:
-//         grade.IsPublished == true?
-//             YES → 400 Bad Request
-//             NO  → continue
-//         ▼
-//   [5] For each QuizScoreItem in request.QuizScores:
-//         Find QuizGrade where Id == item.QuizGradeId
-//                            AND CourseGradeId == grade.Id
-//         If found → quizGrade.Score = item.Score
-//                    _uow.GetRepository<QuizGrade>().Update(quizGrade)
-//         If not found → skip (unknown ID, likely stale)
-//         ▼
-//   [6] For each DiscussionScoreItem in request.DiscussionScores:
-//         Same pattern as [5] but for DiscussionGrade
-//         ▼
-//   [7] _uow.SaveChangesAsync()
-//         All updates committed in ONE database transaction
-//         ▼
-//   Result.Ok("Coursework scores updated successfully.")
+//   [TA Request: Scores] --> (Identity Verification: CallerAppUserId)
+//            |
+//            v
+//   +----------------------+
+//   | Fetch TA             | <-- SELECT * FROM TeachingAssistants WHERE AppUserId = @Id
+//   +----------------------+
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Fetch CourseGrade    | <--- | Central Grade Record (Parent)           |
+//   | & Ownership Check    |      | Check: Section.TAId == TA.Id            |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+
+//   | Publish Check        | --- [IsPublished?] --- (YES) --> [400 BadRequest]
+//   +----------------------+          |
+//            |                      (NO)
+//            v                        |
+//   +----------------------+          v
+//   | Update Quiz Scores   | <--- Loop: Find QuizGrade where ID=@ID AND 
+//   |                      |      CourseGradeId=@ParentID -> Update Score
+//   +----------------------+
+//            |
+//            v
+//   +----------------------+
+//   | Update Disc. Scores  | <--- Loop: Find DiscussionGrade where ID=@ID AND
+//   |                      |      CourseGradeId=@ParentID -> Update Score
+//   +----------------------+
+//            |
+//            v
+//   +----------------------+
+//   | SQL Database Sync    | <-- Atomic Commit: Multiple UPDATES in 1 Trans.
+//   +----------------------+
+//            |
+//            v
+//   [200 OK: Coursework Saved]
 //
 // CHILD RECORD OWNERSHIP GUARD:
 //   The double condition on line [5]:

@@ -10,34 +10,39 @@
 //     3. Rejecting edits to already-published grades
 //     4. Mutating AttendanceScore + AttendanceOverridden and saving
 //
-// SECURITY MODEL:
+// DETAILED FLOW DIAGRAM:
 //
-//   JWT (TeachingAssistant role) → CallerAppUserId
-//         │
-//         ▼
-//   TeachingAssistant table  →  ta.Id
-//         │
-//         ▼
-//   CourseGrade.EnrollmentId → StudentSectionEnrollment.CourseSectionId
-//         │
-//         ▼
-//   CourseSection.TeachingAssistantId  ──must equal──  ta.Id
-//         │
-//         ▼
-//   If mismatch → 403 Forbidden (TA cannot touch another TA's student)
-//
-// PUBLISH GATE:
-//
-//   grade.IsPublished == true?
-//         YES → 400 Bad Request ("Ask the professor to unpublish")
-//         NO  → proceed with mutation + save
-//
-// DATA CHAIN (in-memory joins, no EF navigation properties):
-//
-//   CourseGrade
-//       └─ EnrollmentId ──→ StudentSectionEnrollment
-//                               └─ CourseSectionId ──→ CourseSection
-//                                                          └─ TeachingAssistantId
+//   [TA Request: Attendance] --> (Identity Verification: CallerAppUserId)
+//            |
+//            v
+//   +----------------------+
+//   | Fetch TA Entity      | <-- SELECT * FROM TeachingAssistants WHERE AppUserId = @Id
+//   +----------------------+
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Fetch CourseGrade    | <--- | Ownership validation:                   |
+//   | & Verify Ownership   |      | Section.TeachingAssistantId == TA.Id    |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+
+//   | Publish Check        | --- [IsPublished?] --- (YES) --> [400 BadRequest]
+//   +----------------------+          |
+//            |                      (NO)
+//            v                        |
+//   +----------------------+          v
+//   | Mutate Grade Record  | --- grade.AttendanceScore = @NewScore
+//   | (Set Override Flag)  | --- grade.AttendanceOverridden = true
+//   +----------------------+
+//            |
+//            v
+//   +----------------------+
+//   | SQL Database Sync    | <-- UPDATE CourseGrades SET ... WHERE Id = @Id
+//   +----------------------+
+//            |
+//            v
+//   [200 OK: Attendance Updated]
 //
 // NOTE:
 //   CourseGrade is a class — mutate directly. No 'with' needed.

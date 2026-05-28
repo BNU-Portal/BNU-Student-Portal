@@ -4,9 +4,11 @@
 //
 // FLOW DIAGRAM:
 // [POST /api/admin/enrollments]
-//    -> [EnrollStudentCommand]
+//    -> [EnrollStudentCommand(StudentId, CourseSectionId)]
 //    -> [EnrollStudentCommandHandler]
-//    -> creates Enrollment + CourseGrade
+//         | validate student + section
+//         | prevent duplicate enrollment
+//         | create Enrollment + CourseGrade
 //    -> returns EnrollmentId + CourseGradeId
 
 using BNU_Student_Portal_Shared_Library.SharedResponse;

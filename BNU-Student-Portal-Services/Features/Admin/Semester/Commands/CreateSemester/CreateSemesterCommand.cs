@@ -1,11 +1,13 @@
 // FILE: Features/Admin/Semester/Commands/CreateSemester/CreateSemesterCommand.cs
 // PURPOSE: Admin creates a new semester. IsActive defaults to false on creation.
 //
-// FLOW DIAGRAM:
+// FLOW DIAGRAM (request -> persistence):
 // [POST /api/admin/semesters]
-//    -> [CreateSemesterCommand]
+//    -> [CreateSemesterCommand(Name, StartDate, EndDate)]
 //    -> [CreateSemesterCommandHandler]
-//    -> [Semester row persisted with IsActive = false]
+//         | validate StartDate < EndDate
+//         | create Semester { IsActive = false }
+//         | Add + SaveChanges
 //    -> returns SemesterId (used by ActivateSemester and CourseOffering)
 
 using BNU_Student_Portal_Shared_Library.SharedResponse;

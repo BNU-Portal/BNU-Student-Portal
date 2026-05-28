@@ -3,12 +3,33 @@
 //
 // IMPLEMENTATION FLOW:
 // 1) Validate dates (EndDate > StartDate).
+//    - Fails with Error.Validation("Semester.InvalidDates") if invalid.
 // 2) Create Semester entity with IsActive = false.
 // 3) Add via UoW repository and SaveChanges.
 // 4) Return SemesterId to the caller.
 //
-// DIAGRAM:
-// Validate -> Build Entity -> Add -> Save -> Return Id
+// DETAILED FLOW DIAGRAM:
+//
+//   [Admin Request: Create Semester]
+//            |
+//            v
+//   +----------------------+
+//   | Date Logic Check     | --- [EndDate > StartDate?] --- (NO) --> [400 Validation]
+//   +----------------------+          |
+//            |                      (YES)
+//            v                        |
+//   +----------------------+          v
+//   | Entity Initialization| --- Set: Name, StartDate, EndDate
+//   | (Default State)      | --- Set: IsActive = false (Admin must manually activate)
+//   +----------------------+
+//            |
+//            v
+//   +----------------------+
+//   | SQL Database Insert  | <-- INSERT INTO Semesters (...)
+//   +----------------------+
+//            |
+//            v
+//   [200 OK: Semester Created]
 
 using BNU_Student_Portal_Domain.Entities.Semesters;
 using BNU_Student_Portal_Domain.Interfaces;

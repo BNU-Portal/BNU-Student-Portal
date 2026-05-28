@@ -18,11 +18,53 @@ public class GetStudentGradesBySemesterQueryHandler(IUnitOfWork _uow)
     // Resolve student -> validate semester -> load data -> build rows
     // -> compute GPA stats -> return summary DTO
     //
-    // DIAGRAM:
-    // Student(AppUserId)
-    //   -> Enrollments -> Sections -> Offerings (filter SemesterId)
-    //   -> CourseGrades -> (Quiz/Discussion) -> GradeCalculator
-    //   -> StudentSemesterSummaryDto
+    // DETAILED FLOW DIAGRAM:
+    //
+    //   [Request: SemesterId] --> (Student Auth Context)
+    //            |
+    //            v
+    //   +----------------------+
+    //   | Fetch Student Entity | <-- Match JWT Subject to Student Table
+    //   +----------------------+
+    //            |
+    //            v
+    //   +----------------------+      +-----------------------------------------+
+    //   | Filter Enrollments   | <--- | Only Enrollments for this Student       |
+    //   | by Semester          |      | AND for the requested SemesterId        |
+    //   +----------------------+      +-----------------------------------------+
+    //            |
+    //            v
+    //   +----------------------+      +-----------------------------------------+
+    //   | Aggregate Components | <--- | For each Course:                        |
+    //   | (Quiz, Disc, Att)    |      | Sum(QuizGrades), Sum(DiscGrades)        |
+    //   +----------------------+      +-----------------------------------------+
+    //            |
+    //            v
+    //   +----------------------+      +-----------------------------------------+
+    //   | GradeCalculator      | <--- | Calculate CW and Total                  |
+    //   | .Calculate()         |      | LetterGrade = .GetLetterGrade(Total)    |
+    //   +----------------------+      +-----------------------------------------+
+    //            |
+    //            v
+    //   +----------------------+      +-----------------------------------------+
+    //   | Visibility Logic     | <--- | IF IsPublished AND FinalExamScore EXISTS|
+    //   | (Privacy Gate)       |      | THEN Show Total/Letter/GPA              |
+    //   |                      |      | ELSE Hide Sensitive Totals (Pending)    |
+    //   +----------------------+      +-----------------------------------------+
+    //            |
+    //            v
+    //   +----------------------+      +-----------------------------------------+
+    //   | GPA Computation      | <--- | GradeCalculator.CalculateGpa()          |
+    //   | (Sem & Cumulative)   |      | Based on ALL published courses          |
+    //   +----------------------+      +-----------------------------------------+
+    //            |
+    //            v
+    //   +----------------------+
+    //   | Return Summary DTO   | --- StudentSemesterSummaryDto
+    //   +----------------------+
+    //            |
+    //            v
+    //   [200 OK: My Grades Sheet]
     public async Task<Result<StudentSemesterSummaryDto>> Handle(
         GetStudentGradesBySemesterQuery request, CancellationToken ct)
     {

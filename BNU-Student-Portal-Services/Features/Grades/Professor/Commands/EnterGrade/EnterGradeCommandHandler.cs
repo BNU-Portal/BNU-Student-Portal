@@ -8,10 +8,57 @@
 // Resolve professor -> find grade -> verify ownership -> block if published
 // -> compute total -> set warning -> update and save
 //
-// DIAGRAM:
-// Professor(AppUserId)
-//   -> Grade -> Enrollment -> Section -> Offering (ownership)
-//   -> GradeCalculator -> Update -> Save
+// DETAILED FLOW DIAGRAM:
+//
+//   [Professor Request] --> (JWT Validation: CallerAppUserId)
+//            |
+//            v
+//   +----------------------+
+//   | Fetch Professor      | <-- SELECT * FROM Professors WHERE AppUserId = @Id
+//   +----------------------+
+//            |
+//            v
+//   +----------------------+
+//   | Fetch CourseGrade    | <-- SELECT * FROM CourseGrades WHERE Id = @GradeId
+//   +----------------------+
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Ownership Validation | <--- | Enrollment -> Section -> Offering       |
+//   | (Is this mine?)      |      | Check: Offering.ProfessorId == Prof.Id  |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+
+//   | Publish Check        | --- [IsPublished?] --- (YES) --> [400 BadRequest]
+//   +----------------------+          |
+//            |                      (NO)
+//            v                        |
+//   +----------------------+          v
+//   | Aggregate Components | <--- Fetch QuizGrades & DiscussionGrades
+//   | (Sum Scores)         |      (Sum them for this CourseGrade)
+//   +----------------------+
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | GradeCalculator      | <--- | Injects: Mid1, Mid2, Quiz, Disc,        |
+//   | .Calculate()         |      | Attendance, Final                       |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Academic Warning     | <--- | IF FinalExam EXISTS AND Total < 60      |
+//   | Logic                |      | THEN HasAcademicWarning = true          |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+
+//   | SQL Database Update  | <-- UPDATE CourseGrades SET ... WHERE Id = @Id
+//   | (Unit of Work)       |
+//   +----------------------+
+//            |
+//            v
+//   [200 OK: Grade Updated]
 
 using BNU_Student_Portal_Domain.Entities.Auth;
 using BNU_Student_Portal_Domain.Entities.Courses;

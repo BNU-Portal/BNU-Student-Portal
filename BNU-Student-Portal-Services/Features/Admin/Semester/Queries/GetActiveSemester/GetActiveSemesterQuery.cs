@@ -5,6 +5,8 @@
 // [GET /api/admin/semesters/active]
 //    -> [GetActiveSemesterQuery]
 //    -> [GetActiveSemesterQueryHandler]
+//         | load semesters
+//         | pick IsActive == true
 //    -> returns SemesterDto (404 if none active)
 
 using BNU_Student_Portal_Shared_Library.DTO_s.Admin;

@@ -3,8 +3,11 @@
 //
 // FLOW DIAGRAM:
 // [POST /api/admin/course-sections]
-//    -> [CreateCourseSectionCommand]
+//    -> [CreateCourseSectionCommand(CourseOfferingId, TeachingAssistantId, SectionName)]
 //    -> [CreateCourseSectionCommandHandler]
+//         | validate offering + TA
+//         | copy SemesterId from offering
+//         | persist section
 //    -> returns CourseSectionId (used for enrollments)
 
 using BNU_Student_Portal_Shared_Library.SharedResponse;

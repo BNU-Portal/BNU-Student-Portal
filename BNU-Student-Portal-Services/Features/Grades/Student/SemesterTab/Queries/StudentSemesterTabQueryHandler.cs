@@ -11,15 +11,34 @@ namespace BNU_Student_Portal_Services.Features.Grades.Student.SemesterTab.Querie
 public class StudentSemesterTabQueryHandler(IUnitOfWork _uow)
     : IRequestHandler<StudentSemesterTabQuery, Result<IEnumerable<SemesterTabDto>>>
 {
-    // FLOW SUMMARY:
-    // Resolve student -> walk enrollments -> derive semester IDs -> map to tabs
+    // DETAILED FLOW DIAGRAM:
     //
-    // DIAGRAM:
-    // Student(AppUserId)
-    //   -> Enrollments
-    //      -> Sections
-    //         -> Offerings
-    //            -> Semesters -> SemesterTabDto
+    //   [Request: Student JWT] --> (AppUserId Resolution)
+    //            |
+    //            v
+    //   +----------------------+
+    //   | Fetch Student        | <-- Match JWT Subject to Student Table
+    //   +----------------------+
+    //            |
+    //            v
+    //   +----------------------+      +-----------------------------------------+
+    //   | Discover Semesters   | <--- | Student -> Enrollments -> Sections ->   |
+    //   | (Active History)     |      | Offerings -> SemesterIds                |
+    //   +----------------------+      +-----------------------------------------+
+    //            |
+    //            v
+    //   +----------------------+      +-----------------------------------------+
+    //   | Filter & Sort        | <--- | Deduplicate Semester IDs                |
+    //   |                      |      | Sort by StartDate DESC (Newest First)   |
+    //   +----------------------+      +-----------------------------------------+
+    //            |
+    //            v
+    //   +----------------------+
+    //   | Map to Tab DTOs      | --- List<SemesterTabDto>
+    //   +----------------------+
+    //            |
+    //            v
+    //   [200 OK: Semester Navigation Tabs]
     public async Task<Result<IEnumerable<SemesterTabDto>>> Handle(
         StudentSemesterTabQuery request, CancellationToken ct)
     {

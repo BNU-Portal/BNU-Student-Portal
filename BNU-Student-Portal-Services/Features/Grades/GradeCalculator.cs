@@ -2,9 +2,48 @@
 
 public static class GradeCalculator
 {
-    // FLOW DIAGRAM (calculation pipeline):
-    // scores -> Calculate(cw,total) -> GetLetterGrade(total) -> GetGpaPoints(letter)
-    //         -> CalculateGpa(list of published totals)
+    /* 
+     * FLOW DIAGRAM (Full Grade Calculation Pipeline):
+     * 
+     *   [Input Raw Scores] ---------------------------------------+
+     *          |                                                  |
+     *          v                                                  |
+     *   +-------------------------+                               |
+     *   | Calculate()             |                               |
+     *   |-------------------------|                               |
+     *   | CW = Mid1 + Mid2 + Disc |                               |
+     *   |      + Att + Quiz       |                               |
+     *   | Total = CW + Final      |                               |
+     *   +-------------------------+                               |
+     *          |                                                  |
+     *          v                                                  |
+     *   +-------------------------+      +---------------------+  |
+     *   | GetLetterGrade()        | <--- | Business Rules (Max)|--+
+     *   |-------------------------|      +---------------------+
+     *   | 90+ -> A+               |
+     *   | ...                     |
+     *   | <40 -> F                |
+     *   +-------------------------+
+     *          |
+     *          v
+     *   +-------------------------+
+     *   | GetGpaPoints()          |
+     *   |-------------------------|
+     *   | A+ -> 4.0               |
+     *   | ...                     |
+     *   +-------------------------+
+     *          |
+     *          v
+     *   +-------------------------+
+     *   | CalculateGpa()          |
+     *   |-------------------------|
+     *   | Sum(Points * Credits) / |
+     *   | Total Credits           |
+     *   +-------------------------+
+     *          |
+     *          v
+     *      [Final GPA]
+     */
 
     // BNU business rules — locked
     public const decimal MidtermMax    = 30m;   // 15 + 15

@@ -7,8 +7,27 @@
 // 3) Return 404 if none.
 // 4) Map to SemesterDto and return.
 //
-// DIAGRAM:
-// Load -> Find Active -> Map -> Return
+// DETAILED FLOW DIAGRAM:
+//
+//   [Request: Get Active Semester]
+//            |
+//            v
+//   +----------------------+
+//   | Fetch All Semesters  | <-- SELECT * FROM Semesters
+//   +----------------------+
+//            |
+//            v
+//   +----------------------+
+//   | Search for Active    | --- [Found IsActive == true?] --- (NO) --> [404 Not Found]
+//   +----------------------+          |
+//            |                      (YES)
+//            v                        |
+//   +----------------------+          v
+//   | Map to DTO           | --- SemesterDto (Name, Dates, etc)
+//   +----------------------+
+//            |
+//            v
+//   [200 OK: Current Semester Info]
 
 using BNU_Student_Portal_Domain.Entities.Semesters;
 using BNU_Student_Portal_Domain.Interfaces;

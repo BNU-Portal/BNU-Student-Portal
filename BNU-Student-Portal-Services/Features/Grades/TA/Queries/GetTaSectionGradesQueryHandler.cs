@@ -21,22 +21,48 @@
 //   QuizGrade             → child rows, summed per CourseGrade
 //   DiscussionGrade       → child rows, summed per CourseGrade
 //
-// FULL EXECUTION FLOW:
+// DETAILED FLOW DIAGRAM:
 //
-//   [1] Resolve TA → ta.Id
-//         Fail → 404
-//   [2] Load all 9 tables
-//   [3] Validate section: section.TeachingAssistantId == ta.Id
-//         Fail → 404 "Not assigned to you"
-//   [4] offering → course → semester (display context)
-//   [5] sectionEnrollments = all enrollments where CourseSectionId == section.Id
-//   [6] sectionGrades = allGrades where EnrollmentId in sectionEnrollments
-//   [7] For each grade record:
-//         a. Find matching enrollment → find Student by StudentId
-//         b. quizTotal  = sum of QuizGrade.Score where CourseGradeId == grade.Id
-//         c. discTotal  = sum of DiscussionGrade.Score where CourseGradeId == grade.Id
-//         d. Build TaGradeRowDto (NO midterm or final — TA does not see those)
-//   [8] Return TaSectionGradesDto { ..., Students: rows }
+//   [Request: SectionId] --> (TA Auth Context)
+//            |
+//            v
+//   +----------------------+
+//   | Fetch Master Data    | <-- Load: Sections, Offerings, Courses, Semesters,
+//   | (In-Memory Join)     |       Enrollments, Grades, Students, Quizzes, Disc
+//   +----------------------+
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Ownership Validation | <--- | SELECT * FROM Sections                  |
+//   | (Is this mine?)      |      | WHERE Id = @Id AND TAId = @CallerId     |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Map View Context     | <--- | Offering -> Course (Name, Code)         |
+//   |                      |      | Offering -> Semester (Name)             |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Loop Section Students| <--- | For each CourseGrade in Section:        |
+//   | (Sum Aggregation)    |      | 1. Sum QuizGrade.Score                  |
+//   |                      |      | 2. Sum DiscussionGrade.Score            |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Data Masking         | <--- | StudentNationalId = ""                  |
+//   | (Privacy Guard)      |      | (TAs cannot see sensitive ID data)      |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+
+//   | Return Results       | --- TaSectionGradesDto
+//   +----------------------+
+//            |
+//            v
+//   [200 OK: Section Grade Sheet]
 //
 // PRIVACY NOTE:
 //   StudentNationalId = string.Empty — TAs do not have access to national ID.

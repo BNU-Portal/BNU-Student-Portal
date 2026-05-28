@@ -3,8 +3,11 @@
 //
 // FLOW DIAGRAM:
 // [POST /api/admin/course-offerings]
-//    -> [CreateCourseOfferingCommand]
+//    -> [CreateCourseOfferingCommand(CourseId, SemesterId, ProfessorId)]
 //    -> [CreateCourseOfferingCommandHandler]
+//         | validate FK existence
+//         | prevent duplicates
+//         | persist CourseOffering
 //    -> returns CourseOfferingId (used to create sections)
 
 using BNU_Student_Portal_Shared_Library.SharedResponse;

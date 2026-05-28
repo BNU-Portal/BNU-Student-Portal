@@ -11,14 +11,41 @@ namespace BNU_Student_Portal_Services.Features.Grades.Professor.Queries;
 public class GetProfessorCourseTabQueryHandler(IUnitOfWork _uow)
     : IRequestHandler<GetProfessorCourseTabQuery, Result<IEnumerable<ProfessorCourseTabDto>>>
 {
-    // FLOW SUMMARY:
-    // Resolve professor -> filter offerings -> aggregate sections/enrollments/grades
-    // -> compute publish/pending status -> return tab DTOs
-    //
-    // DIAGRAM:
-    // Professor(AppUserId)
-    //   -> Offerings -> Sections -> Enrollments -> CourseGrades
-    //   -> ProfessorCourseTabDto
+// DETAILED FLOW DIAGRAM:
+//
+//   [Request: Professor JWT] 
+//            |
+//            v
+//   +----------------------+
+//   | Resolve Professor    | <-- (Auth Context)
+//   +----------------------+
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Load Active Courses  | <--- | SELECT * FROM CourseOfferings           |
+//   | (Filter by ProfId)   |      | WHERE ProfessorId = @Id                 |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Aggregate Section    | <--- | For each Offering:                      |
+//   | Data                 |      | Offering -> Sections -> Enrollments     |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Calculate State      | <--- | Conditions:                             |
+//   | (Summarization)      |      | 1. AllPublished (Every student marked)  |
+//   |                      |      | 2. PendingCount (Final score missing)   |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+
+//   | Return List of Tabs  | --- List<ProfessorCourseTabDto>
+//   +----------------------+
+//            |
+//            v
+//   [200 OK: Courses Dashboard]
     public async Task<Result<IEnumerable<ProfessorCourseTabDto>>> Handle(
         GetProfessorCourseTabQuery request, CancellationToken ct)
     {

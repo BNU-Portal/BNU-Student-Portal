@@ -8,6 +8,8 @@ namespace BNU_Student_Portal_Services.Features.Grades.Student.GradesPerSemester.
 // [GET /api/grades/student/semesters/{id}]
 //    -> [GetStudentGradesBySemesterQuery]
 //    -> [GetStudentGradesBySemesterQueryHandler]
+//         | validate student + semester
+//         | build grade rows + GPA stats
 //    -> returns StudentSemesterSummaryDto
 public record GetStudentGradesBySemesterQuery(
     string CallerAppUserId,

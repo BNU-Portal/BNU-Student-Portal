@@ -12,19 +12,27 @@
 //   POST   /api/admin/enrollments                   -> Enroll student in section
 
 // SETUP FLOW (recommended order for Grades data):
-// 1) CreateSemester
-// 2) ActivateSemester
-// 3) CreateCourseOffering
-// 4) CreateCourseSection
-// 5) EnrollStudent
+// 1) CreateSemester      -> returns SemesterId
+// 2) ActivateSemester    -> marks current semester (only one active)
+// 3) CreateCourseOffering-> returns CourseOfferingId (Course + Semester + Professor)
+// 4) CreateCourseSection -> returns CourseSectionId (TA assigned, SemesterId copied)
+// 5) EnrollStudent       -> returns EnrollmentId + CourseGradeId (blank grade row)
 //
-// FLOW DIAGRAM (high level):
-// [Admin Client]
-//    |
-//    v
-// [AdminController] -> [MediatR] -> [Feature Handler] -> [UoW/Repo] -> [DB]
-//    ^--------------------------------------------------------------------|
-//    Result<T> returns to caller with IDs for the next step
+// DATA CHAIN (IDs that flow forward):
+// Semester.Id
+//   -> CourseOffering.SemesterId
+//       -> CourseSection.CourseOfferingId + SemesterId (copied)
+//           -> StudentSectionEnrollment.CourseSectionId
+//               -> CourseGrade.EnrollmentId
+//
+// REQUEST/RESPONSE FLOW (per endpoint):
+// [Admin Client] -> [AdminController] -> [MediatR] -> [Feature Handler] -> [UoW/Repo] -> [DB]
+//       ^----------------------------------------------------------------------------------|
+//       Result<T> bubbles back (success or Error.*)
+//
+// ERROR PATTERN (typical):
+// - 404 NotFound when a referenced FK does not exist (CourseId, SemesterId, etc.)
+// - 400 Validation for duplicate combinations or invalid date ranges
 
 using BNU_Student_Portal_Services.Features.Admin.CourseOffering.Commands.CreateCourseOffering;
 using BNU_Student_Portal_Services.Features.Admin.CourseOffering.Queries.GetAllCourseOfferings;

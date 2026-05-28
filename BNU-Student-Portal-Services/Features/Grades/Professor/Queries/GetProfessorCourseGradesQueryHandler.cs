@@ -9,12 +9,47 @@
 // Resolve professor -> validate offering ownership -> load tables -> build rows
 // -> compute distribution and averages -> return ProfessorCourseGradesDto
 //
-// DIAGRAM:
-// Professor(AppUserId)
-//   -> Offering (ownership check)
-//      -> Sections -> Enrollments -> CourseGrades
-//      -> Quiz/Discussion -> GradeCalculator
-//   -> ProfessorCourseGradesDto + Distribution
+// DETAILED FLOW DIAGRAM:
+//
+//   [Request: OfferingId] --> (Professor Auth)
+//            |
+//            v
+//   +----------------------+
+//   | Fetch Master Data    | <-- Load: Courses, Semesters, Sections,
+//   | (In-Memory Join)     |       Enrollments, Grades, Students
+//   +----------------------+
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Filter Context       | <--- | Only data belonging to this OfferingId  |
+//   | (Offering Scope)     |      | and this ProfessorId.                   |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Aggregate Sub-Grades | <--- | For each Student:                       |
+//   | (Loop & Sum)         |      | Sum QuizGrades + Sum DiscussionGrades   |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Calculate Totals     | <--- | GradeCalculator.Calculate()             |
+//   | (Row Generation)     |      | LetterGrade = GradeCalculator.GetLetter |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Compute Statistics   | <--- | Class Average, Section Averages,        |
+//   | (Distribution)       |      | Grade Buckets (A, B, C, D, F)           |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+
+//   | Map to DTO           | --- ProfessorCourseGradesDto
+//   +----------------------+
+//            |
+//            v
+//   [200 OK: Full Grade Sheet]
 
 using BNU_Student_Portal_Domain.Entities.Auth;
 using BNU_Student_Portal_Domain.Entities.Courses;

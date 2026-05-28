@@ -7,8 +7,34 @@
 // 3) Loop all semesters and flip IsActive based on target.
 // 4) Save changes once.
 //
-// DIAGRAM:
-// Load -> Find Target -> Toggle All -> Save
+// DETAILED FLOW DIAGRAM:
+//
+//   [Admin Request: Activate Semester]
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Fetch All Semesters  | <--- | SELECT * FROM Semesters                 |
+//   | (State Management)   |      | (Needed for bulk activation flip)       |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+
+//   | Verify Target        | --- [Target exists?] --- (NO) --> [404 Not Found]
+//   +----------------------+          |
+//            |                      (YES)
+//            v                        |
+//   +----------------------+          v
+//   | Bulk State Update    | --- Loop: if s.Id == target then IsActive = true
+//   | (Single Active Rule) |           else IsActive = false
+//   +----------------------+
+//            |
+//            v
+//   +----------------------+
+//   | SQL Database Sync    | <-- UPDATE Semesters SET IsActive = ...
+//   +----------------------+
+//            |
+//            v
+//   [200 OK: Semester Activated]
 
 using BNU_Student_Portal_Domain.Entities.Semesters;
 using BNU_Student_Portal_Domain.Interfaces;

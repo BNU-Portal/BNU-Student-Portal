@@ -10,5 +10,7 @@ namespace BNU_Student_Portal_Services.Features.Grades.Student.SemesterTab.Querie
 // [GET /api/grades/student/semesters]
 //    -> [StudentSemesterTabQuery]
 //    -> [StudentSemesterTabQueryHandler]
-//    -> returns SemesterTabDto list
+//         | resolve Student by AppUserId
+//         | join Enrollment -> Section -> Offering -> Semester
+//         | return unique SemesterTabDto list (newest first)
 public record StudentSemesterTabQuery(string CallerId) : IRequest<Result<IEnumerable<SemesterTabDto>>>;

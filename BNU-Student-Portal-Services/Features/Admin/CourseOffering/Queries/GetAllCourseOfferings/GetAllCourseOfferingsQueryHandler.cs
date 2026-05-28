@@ -8,8 +8,35 @@
 // 2) For each offering, resolve the AppUser for professor name via UserManager.
 // 3) Map to CourseOfferingDto list.
 //
-// DIAGRAM:
-// Load -> Join/Lookup -> Map -> Return
+// DETAILED FLOW DIAGRAM:
+//
+//   [Request: Get All Offerings]
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Fetch Repositories   | <--- | Load: Offerings, Courses, Semesters,    |
+//   | (UoW pattern)        |      | Professors                              |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Identity Resolution  | <--- | For each Professor, use UserManager     |
+//   | (Prof. Name lookup)  |      | to find AppUser.Name (Identity Table)   |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | In-Memory Join       | <--- | Match Offering IDs to Course Codes,     |
+//   | (DTO Mapping)        |      | Semester Names, and Professor Names     |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+
+//   | Result Aggregation   | --- List<CourseOfferingDto>
+//   +----------------------+
+//            |
+//            v
+//   [200 OK: Admin Dashboard View]
 
 using BNU_Student_Portal_Domain.Entities.Auth;
 using BNU_Student_Portal_Domain.Entities.Courses;

@@ -7,10 +7,47 @@
 // Resolve professor -> validate offering -> collect enrollmentIds -> filter grades
 // -> mark published -> save
 //
-// DIAGRAM:
-// Professor(AppUserId)
-//   -> Offering -> Sections -> Enrollments -> CourseGrades
-//   -> Publish -> Save
+// DETAILED FLOW DIAGRAM:
+//
+//   [Publish Request] --> (CourseOfferingId)
+//            |
+//            v
+//   +----------------------+
+//   | Fetch Professor      | <-- (Identity Verification)
+//   +----------------------+
+//            |
+//            v
+//   +----------------------+
+//   | Validate Offering    | <-- Check: Offering.Id exists AND belongs to Prof.Id
+//   +----------------------+
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Dependency Traversal | <--- | Offering -> Sections -> Enrollments     |
+//   | (Collect IDs)        |      | (Get all students in this offering)     |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Filter Grades        | <--- | Conditions:                             |
+//   | (Selection Logic)    |      | 1. Not already published                |
+//   |                      |      | 2. FinalExamScore MUST be present       |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            +---> [None found?] --- (YES) --> [400 NothingToPublish]
+//            |
+//            v
+//   +----------------------+
+//   | Batch Update         | --- Loop: grade.IsPublished = true
+//   +----------------------+
+//            |
+//            v
+//   +----------------------+
+//   | SQL Database Sync    | <-- UPDATE CourseGrades SET IsPublished = 1 ...
+//   +----------------------+
+//            |
+//            v
+//   [200 OK: Grades Published]
 
 using BNU_Student_Portal_Domain.Entities.Auth;
 using BNU_Student_Portal_Domain.Entities.Courses;

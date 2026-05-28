@@ -27,22 +27,40 @@
 //   StudentSectionEnrollment (count where CourseSectionId == section.Id)
 //       → StudentCount for the tab badge
 //
-// FULL EXECUTION FLOW:
+// DETAILED FLOW DIAGRAM:
 //
-//   [1] Load all TeachingAssistant rows → find ta by AppUserId
-//         Fail → 404 "TA profile not found"
-//
-//   [2] Load CourseSection, CourseOffering, Course, Semester, Enrollment tables
-//
-//   [3] Find section where section.TeachingAssistantId == ta.Id
-//         Fail → 404 "No section assigned to you"
-//
-//   [4] Walk offering → course → semester for display context
-//         (null-safe with ?. and ?? fallbacks)
-//
-//   [5] Count enrollments in this section → StudentCount
-//
-//   [6] Return Result.Ok(TaSectionTabDto { ... })
+//   [Request: TA JWT] --> (AppUserId Resolution)
+//            |
+//            v
+//   +----------------------+
+//   | Fetch TA             | <-- Match JWT Subject to TeachingAssistant Table
+//   +----------------------+
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Find Section         | <--- | SELECT * FROM Sections                  |
+//   | (Assignment Check)   |      | WHERE TeachingAssistantId = @TAId       |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Fetch Context        | <--- | Section -> Offering -> Course & Semester|
+//   | (Joins for Display)  |      | (Get names and codes for the UI)        |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Count Enrollments    | <--- | SELECT COUNT(*) FROM Enrollments        |
+//   | (Badge Data)         |      | WHERE CourseSectionId = @SectionId      |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+
+//   | Return Tab Info      | --- TaSectionTabDto
+//   +----------------------+
+//            |
+//            v
+//   [200 OK: Section Dashboard]
 // ============================================================
 
 using BNU_Student_Portal_Domain.Entities.Auth;

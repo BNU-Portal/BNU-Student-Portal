@@ -7,8 +7,38 @@
 // 3) Create CourseOffering entity and persist.
 // 4) Return new CourseOfferingId.
 //
-// DIAGRAM:
-// Validate FKs -> Check Duplicate -> Create -> Save -> Return Id
+// DETAILED FLOW DIAGRAM:
+//
+//   [Admin Request: Create Offering]
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Referential Integrity| <--- | Check: Course EXISTS?                   |
+//   | Check (FKs)          |      | Check: Semester EXISTS?                 |
+//   |                      |      | Check: Professor EXISTS?                |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Uniqueness Check     | <--- | SELECT * FROM CourseOfferings           |
+//   | (Duplicate Guard)    |      | WHERE CourseId=@C AND SemesterId=@S     |
+//   |                      |      | AND ProfessorId=@P                      |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            +---> [Exists?] --- (YES) --> [400 Validation Error]
+//            |
+//            v
+//   +----------------------+
+//   | Entity Construction  | --- New Guid() + Mapping Request to Domain
+//   +----------------------+
+//            |
+//            v
+//   +----------------------+
+//   | SQL Database Insert  | <-- INSERT INTO CourseOfferings (...)
+//   +----------------------+
+//            |
+//            v
+//   [200 OK: Offering Created]
 
 using BNU_Student_Portal_Domain.Entities.Auth;
 using BNU_Student_Portal_Domain.Entities.Courses;

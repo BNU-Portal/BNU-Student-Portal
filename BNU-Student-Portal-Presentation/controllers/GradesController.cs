@@ -20,17 +20,40 @@
 //   PUT  /api/grades/ta/attendance                  → C4 update attendance
 //   PUT  /api/grades/ta/coursework                  → C5 enter quiz/discussion scores
 
-// END-TO-END FLOW (one student, one course):
-// Admin: CreateSemester -> ActivateSemester -> CreateCourseOffering -> CreateCourseSection -> EnrollStudent
-// TA:    GetTaSectionTab -> GetTaSectionGrades -> UpdateAttendance / EnterCoursework
-// Prof:  GetProfessorCourseTab -> GetProfessorCourseGrades -> EnterGrade -> PublishGrades
-// Student: GetStudentSemesterTabs -> GetStudentGradesBySemester (only after publish)
+// END-TO-END FLOW (one student, one course, one offering):
+// Admin:
+//   CreateSemester -> ActivateSemester -> CreateCourseOffering -> CreateCourseSection -> EnrollStudent
+// TA:
+//   GetTaSectionTab -> GetTaSectionGrades -> UpdateAttendance / EnterCoursework
+// Professor:
+//   GetProfessorCourseTab -> GetProfessorCourseGrades -> EnterGrade -> PublishGrades
+// Student:
+//   GetStudentSemesterTabs -> GetStudentGradesBySemester (only after publish)
 //
-// DIAGRAM (data visibility):
-// [TA updates attendance/coursework] --(unpublished)--> [Professor enters midterms/final]
-//        |                                                   |
-//        v                                                   v
-//   [CourseGrade] -----------------(PublishGrades)--------> [Student view]
+// MASTER DIAGRAM (identity + data flow + visibility gates):
+//
+//   [JWT NameIdentifier]
+//        |
+//        v
+//   [Controller Action] --(sets CallerAppUserId)--> [MediatR Command/Query]
+//        |                                             |
+//        |                                             v
+//        |                                       [Handler]
+//        |                                             |
+//        |             +-------------------------------+-----------------------------+
+//        |             |                                                             |
+//        v             v                                                             v
+//   Student flow   TA flow                                                      Professor flow
+//   -----------   --------                                                      --------------
+//   Tabs/Grades   Attendance/Coursework                                        Midterms/Finals
+//        |             |                                                             |
+//        v             v                                                             v
+//   [CourseGrade] <----+-------------------------- shared grade record ---------------+
+//        |
+//        |  Visibility Gate (student):
+//        |  IsPublished == true AND FinalExamScore.HasValue
+//        v
+//   [Student view sees totals, letter, GPA]
 
 using BNU_Student_Portal_Services.Features.Grades.Professor.Commands.EnterGrade;
 using BNU_Student_Portal_Services.Features.Grades.Professor.Commands.PublishGrades;

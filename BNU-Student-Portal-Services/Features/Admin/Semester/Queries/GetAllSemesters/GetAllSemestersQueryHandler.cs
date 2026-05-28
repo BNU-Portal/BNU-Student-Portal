@@ -7,8 +7,28 @@
 // 3) Map each row to SemesterDto.
 // 4) Return list.
 //
-// DIAGRAM:
-// Load -> Sort -> Map -> Return
+// DETAILED FLOW DIAGRAM:
+//
+//   [Request: Get All Semesters]
+//            |
+//            v
+//   +----------------------+
+//   | Fetch Repositories   | <-- SELECT * FROM Semesters
+//   +----------------------+
+//            |
+//            v
+//   +----------------------+      +-----------------------------------------+
+//   | Sort Logic           | <--- | OrderByDescending(s => s.StartDate)      |
+//   | (Ordering)           |      | (Newest semesters appear at the top)    |
+//   +----------------------+      +-----------------------------------------+
+//            |
+//            v
+//   +----------------------+
+//   | Map to DTOs          | --- List<SemesterDto>
+//   +----------------------+
+//            |
+//            v
+//   [200 OK: Full Semester List]
 
 using BNU_Student_Portal_Domain.Entities.Semesters;
 using BNU_Student_Portal_Domain.Interfaces;
