@@ -24,7 +24,7 @@ public class EnrollStudentCommandHandler(IUnitOfWork _uow)
                 Error.NotFound("Enrollment.StudentNotFound",
                     $"Student {request.StudentId} not found."));
 
-        var sections = await _uow.GetRepository<CourseSection, Guid>().GetAllAsync();
+        var sections = await _uow.GetRepository<BNU_Student_Portal_Domain.Entities.Courses.CourseSection, Guid>().GetAllAsync();
         if (!sections.Any(s => s.Id == request.CourseSectionId))
             return Result<EnrollmentResult>.Fail(
                 Error.NotFound("Enrollment.SectionNotFound",

@@ -18,16 +18,16 @@ public class ActivateSemesterCommandHandler(IUnitOfWork _uow)
         var target    = semesters.FirstOrDefault(s => s.Id == request.SemesterId);
 
         if (target is null)
-            return Result.Fail(
+            return Result<object>.Fail(
                 Error.NotFound("Semester.NotFound", $"Semester {request.SemesterId} not found."));
 
         foreach (var s in semesters)
         {
             s.IsActive = s.Id == request.SemesterId;
-            await repo.UpdateAsync(s);
+            repo.Update(s);
         }
 
         await _uow.SaveChangesAsync();
-        return Result.Ok();
+        return Result<object>.Ok("Semester activated successfully.");
     }
 }
