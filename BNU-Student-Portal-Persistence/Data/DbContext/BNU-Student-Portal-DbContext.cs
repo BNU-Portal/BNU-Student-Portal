@@ -54,7 +54,13 @@ namespace BNU_Student_Portal_Persistence.Data.DbContext
             });
 
             #region Course offering and section
-
+            // Inside OnModelCreating, in the CourseSection config block:
+            modelBuilder.Entity<CourseSection>()
+                .HasOne(s => s.Semester)
+                .WithMany()              // Semester has no ICollection<CourseSection> — that's fine
+                .HasForeignKey(s => s.SemesterId)
+                .OnDelete(DeleteBehavior.Restrict); // never cascade-delete sections if semester deleted
+            
             //Course offering and section
             modelBuilder.Entity<CourseOffering>(entity =>
             {

@@ -388,12 +388,17 @@ namespace BNU_Student_Portal_Persistence.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<Guid>("SemesterId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid>("TeachingAssistantId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
                     b.HasIndex("CourseOfferingId");
+
+                    b.HasIndex("SemesterId");
 
                     b.HasIndex("TeachingAssistantId");
 
@@ -839,6 +844,12 @@ namespace BNU_Student_Portal_Persistence.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("BNU_Student_Portal_Domain.Entities.Semesters.Semester", "Semester")
+                        .WithMany()
+                        .HasForeignKey("SemesterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("BNU_Student_Portal_Domain.Entities.Auth.TeachingAssistant", "TeachingAssistant")
                         .WithMany()
                         .HasForeignKey("TeachingAssistantId")
@@ -846,6 +857,8 @@ namespace BNU_Student_Portal_Persistence.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("CourseOffering");
+
+                    b.Navigation("Semester");
 
                     b.Navigation("TeachingAssistant");
                 });

@@ -2,6 +2,7 @@
 using BNU_Student_Portal_Domain.Entities.Discussions;
 using BNU_Student_Portal_Domain.Entities.Quizzes;
 using BNU_Student_Portal_Domain.Entities.Sections;
+using BNU_Student_Portal_Domain.Entities.Semesters;
 
 namespace BNU_Student_Portal_Domain.Entities.Courses;
 
@@ -10,6 +11,11 @@ public class CourseSection : BaseEntity<Guid>
     public Guid CourseOfferingId { get; set; }
     public CourseOffering CourseOffering { get; set; } = default!;
 
+    // ★ NEW — copied from offering.SemesterId at creation time.
+    // Immutable after creation — never needs to be updated.
+    public Guid SemesterId { get; set; }
+    public Semester Semester { get; set; } = default!;
+    
     public string SectionName { get; set; } = default!;  // e.g. "Section 1"
 
     public Guid TeachingAssistantId { get; set; }

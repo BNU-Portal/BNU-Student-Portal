@@ -26,8 +26,4 @@
     <ProjectReference Include="..\BNU-Student-Portal-Services-Implementation\BNU-Student-Portal-Services-Abstraction.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Features\Grades\Student\" />
-  </ItemGroup>
-
 </Project>

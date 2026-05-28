@@ -26,8 +26,28 @@ public class StudentSemesterTabQueryHandler(IUnitOfWork unitOfWork)
         var offerings   = await unitOfWork.GetRepository<CourseOffering, Guid>().GetAllAsync();
         var semesters   = await unitOfWork.GetRepository<Semester, Guid>().GetAllAsync();
         
+        // AFTER (direct lookup — 1 line)
+        var semesterIds = enrollments
+            .Where(e => e.StudentId == student.Id)
+            .Join(sections, e => e.CourseSectionId, s => s.Id, (_, s) => s.SemesterId)
+            .Distinct().ToHashSet();
+       
+        var ordered = semesters
+            .Where(s => semesterIds.Contains(s.Id))
+            .OrderByDescending(s => s.StartDate)
+            .ToList();
         
-        
+        // ── Step 5: Project to DTO ────────────────────────────────────────────
+        // "IsActive = true" only for the first tab (index 0 = most recent semester).
+        // The frontend uses this to pre-select the correct tab on page load.
+        var tabs = ordered.Select((s, i) =>
+            new SemesterTabDto
+            {
+                SemesterId = s.Id,
+                SemesterName = s.Name,
+                IsActive = i == 0
+            });
+        return Result<IEnumerable<SemesterTabDto>>.Ok(tabs);
 
         
 
