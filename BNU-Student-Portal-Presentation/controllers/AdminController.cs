@@ -50,7 +50,7 @@ namespace BNU_Student_Portal_Presentation.Controllers;
 
 [ApiController]
 [Route("api/admin")]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Admin,SuperAdmin")]
 public class AdminController(ISender _sender) : ApiBaseController
 {
     // ================================================================
