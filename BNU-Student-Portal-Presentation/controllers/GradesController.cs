@@ -3,9 +3,12 @@
 //
 // SECURITY PATTERN: CallerAppUserId is ALWAYS extracted from the validated JWT
 //   using User.FindFirstValue(ClaimTypes.NameIdentifier) inside each action.
-//   It is never read from the request body — this prevents impersonation.
-//   For commands sent as JSON body (EnterGrade, UpdateAttendance, EnterCoursework),
-//   the CallerAppUserId in the body is overwritten with the JWT value via 'with'.
+//   It is NEVER read from the request body — this prevents impersonation.
+//
+//   For C1/C4/C5 (commands with CallerAppUserId), we use separate request DTOs
+//   as [FromBody] instead of the command directly. This avoids ASP.NET model
+//   binding rejecting the request with 400 "CallerAppUserId is required" before
+//   the controller action even runs.
 //
 // ROUTE DESIGN:
 //   GET  /api/grades/student/semesters              → Q1 semester tabs
@@ -19,41 +22,6 @@
 //   GET  /api/grades/ta/section/{id}                → Q6 TA section grade list
 //   PUT  /api/grades/ta/attendance                  → C4 update attendance
 //   PUT  /api/grades/ta/coursework                  → C5 enter quiz/discussion scores
-
-// END-TO-END FLOW (one student, one course, one offering):
-// Admin:
-//   CreateSemester -> ActivateSemester -> CreateCourseOffering -> CreateCourseSection -> EnrollStudent
-// TA:
-//   GetTaSectionTab -> GetTaSectionGrades -> UpdateAttendance / EnterCoursework
-// Professor:
-//   GetProfessorCourseTab -> GetProfessorCourseGrades -> EnterGrade -> PublishGrades
-// Student:
-//   GetStudentSemesterTabs -> GetStudentGradesBySemester (only after publish)
-//
-// MASTER DIAGRAM (identity + data flow + visibility gates):
-//
-//   [JWT NameIdentifier]
-//        |
-//        v
-//   [Controller Action] --(sets CallerAppUserId)--> [MediatR Command/Query]
-//        |                                             |
-//        |                                             v
-//        |                                       [Handler]
-//        |                                             |
-//        |             +-------------------------------+-----------------------------+
-//        |             |                                                             |
-//        v             v                                                             v
-//   Student flow   TA flow                                                      Professor flow
-//   -----------   --------                                                      --------------
-//   Tabs/Grades   Attendance/Coursework                                        Midterms/Finals
-//        |             |                                                             |
-//        v             v                                                             v
-//   [CourseGrade] <----+-------------------------- shared grade record ---------------+
-//        |
-//        |  Visibility Gate (student):
-//        |  IsPublished == true AND FinalExamScore.HasValue
-//        v
-//   [Student view sees totals, letter, GPA]
 
 using BNU_Student_Portal_Services.Features.Grades.Professor.Commands.EnterGrade;
 using BNU_Student_Portal_Services.Features.Grades.Professor.Commands.PublishGrades;
@@ -71,9 +39,34 @@ using System.Security.Claims;
 
 namespace BNU_Student_Portal_Presentation.Controllers;
 
+// ── Request DTOs (body only — no CallerAppUserId) ───────────────────────────
+// These are what the client actually sends. CallerAppUserId is injected from JWT.
+
+/// <summary>Body for PUT /api/grades/professor/grade</summary>
+public record EnterGradeRequest(
+    Guid     CourseGradeId,
+    decimal? Midterm1Score,
+    decimal? Midterm2Score,
+    decimal? FinalExamScore,
+    string?  ProfNote);
+
+/// <summary>Body for PUT /api/grades/ta/attendance</summary>
+public record UpdateAttendanceRequest(
+    Guid    CourseGradeId,
+    decimal AttendanceScore,
+    bool    AttendanceOverridden);
+
+/// <summary>Body for PUT /api/grades/ta/coursework</summary>
+public record EnterCourseworkRequest(
+    Guid                              CourseGradeId,
+    IEnumerable<QuizScoreItem>        QuizScores,
+    IEnumerable<DiscussionScoreItem>  DiscussionScores);
+
+// ── Controller ───────────────────────────────────────────────────────────────
+
 [ApiController]
 [Route("api/grades")]
-[Authorize]  // all endpoints require a valid JWT — role checks are per-action
+[Authorize]
 public class GradesController(ISender _sender) : ApiBaseController
 {
     // ════════════════════════════════════════════════════════════════════
@@ -82,7 +75,6 @@ public class GradesController(ISender _sender) : ApiBaseController
 
     /// <summary>
     /// Q1 — Returns the list of semester tabs the student has grades in.
-    /// Frontend uses this to render the top tab bar on the student grades page.
     /// </summary>
     [HttpGet("student/semesters")]
     [Authorize(Roles = "Student")]
@@ -95,7 +87,6 @@ public class GradesController(ISender _sender) : ApiBaseController
 
     /// <summary>
     /// Q2 — Returns all course grades for the student in one specific semester.
-    /// Called when the student clicks a semester tab.
     /// </summary>
     [HttpGet("student/semesters/{semesterId:guid}")]
     [Authorize(Roles = "Student")]
@@ -112,7 +103,6 @@ public class GradesController(ISender _sender) : ApiBaseController
 
     /// <summary>
     /// Q3 — Returns the list of course offering tabs for the professor.
-    /// Each tab shows one course with publish status and pending student count.
     /// </summary>
     [HttpGet("professor/courses")]
     [Authorize(Roles = "Professor")]
@@ -124,39 +114,41 @@ public class GradesController(ISender _sender) : ApiBaseController
     }
 
     /// <summary>
-    /// Q4 — Returns the full grade sheet (all students + distribution) for one
-    /// course offering. Called when the professor clicks a course tab.
+    /// Q4 — Returns the full grade sheet for one course offering.
     /// </summary>
     [HttpGet("professor/courses/{courseOfferingId:guid}")]
     [Authorize(Roles = "Professor")]
     public async Task<IActionResult> GetProfessorCourseGrades(Guid courseOfferingId)
     {
         var callerId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-        var result   = await _sender.Send(
-            new GetProfessorCourseGradesQuery(callerId, courseOfferingId));
+        var result   = await _sender.Send(new GetProfessorCourseGradesQuery(callerId, courseOfferingId));
         return HandleResult(result);
     }
 
     /// <summary>
     /// C1 — Professor enters or updates Midterm1, Midterm2, FinalExam for one student.
-    /// CallerAppUserId from the request body is overwritten with the JWT identity.
+    /// Body: { courseGradeId, midterm1Score?, midterm2Score?, finalExamScore?, profNote? }
+    /// CallerAppUserId is NOT in the body — injected from JWT.
     /// </summary>
     [HttpPut("professor/grade")]
     [Authorize(Roles = "Professor")]
-    public async Task<IActionResult> EnterGrade([FromBody] EnterGradeCommand command)
+    public async Task<IActionResult> EnterGrade([FromBody] EnterGradeRequest request)
     {
-        // Overwrite identity from JWT — never trust the client-supplied value
-        var safeCommand = command with
-        {
-            CallerAppUserId = User.FindFirstValue(ClaimTypes.NameIdentifier)!
-        };
-        var result = await _sender.Send(safeCommand);
+        var callerId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var command  = new EnterGradeCommand(
+            callerId,
+            request.CourseGradeId,
+            request.Midterm1Score,
+            request.Midterm2Score,
+            request.FinalExamScore,
+            request.ProfNote);
+        var result = await _sender.Send(command);
         return HandleResult(result);
     }
 
     /// <summary>
-    /// C2 — Professor publishes all ready grades for one course offering at once.
-    /// Only grades with a FinalExamScore are published; already-published ones are skipped.
+    /// C2 — Professor publishes all ready grades for one course offering.
+    /// Only grades with a FinalExamScore are published.
     /// </summary>
     [HttpPost("professor/courses/{courseOfferingId:guid}/publish")]
     [Authorize(Roles = "Professor")]
@@ -169,7 +161,6 @@ public class GradesController(ISender _sender) : ApiBaseController
 
     /// <summary>
     /// C3 — Unpublishes one student's grade so the professor can correct it.
-    /// After fixing the score, call PublishGrades again to re-publish.
     /// </summary>
     [HttpPost("professor/grade/{courseGradeId:guid}/unpublish")]
     [Authorize(Roles = "Professor")]
@@ -186,7 +177,6 @@ public class GradesController(ISender _sender) : ApiBaseController
 
     /// <summary>
     /// Q5 — Returns the single section tab assigned to the TA.
-    /// TAs are assigned to exactly one section per semester.
     /// </summary>
     [HttpGet("ta/section")]
     [Authorize(Roles = "TeachingAssistant")]
@@ -199,7 +189,6 @@ public class GradesController(ISender _sender) : ApiBaseController
 
     /// <summary>
     /// Q6 — Returns the full attendance/coursework grade list for the TA's section.
-    /// The TA sees attendance, quiz totals, and discussion totals — NOT midterms or final.
     /// </summary>
     [HttpGet("ta/section/{sectionId:guid}")]
     [Authorize(Roles = "TeachingAssistant")]
@@ -212,34 +201,39 @@ public class GradesController(ISender _sender) : ApiBaseController
 
     /// <summary>
     /// C4 — TA updates the attendance score for one student.
-    /// Set AttendanceOverridden = true to flag that this was a manual override.
+    /// Body: { courseGradeId, attendanceScore, attendanceOverridden }
+    /// CallerAppUserId is NOT in the body — injected from JWT.
     /// </summary>
     [HttpPut("ta/attendance")]
     [Authorize(Roles = "TeachingAssistant")]
-    public async Task<IActionResult> UpdateAttendance([FromBody] UpdateAttendanceCommand command)
+    public async Task<IActionResult> UpdateAttendance([FromBody] UpdateAttendanceRequest request)
     {
-        var safeCommand = command with
-        {
-            CallerAppUserId = User.FindFirstValue(ClaimTypes.NameIdentifier)!
-        };
-        var result = await _sender.Send(safeCommand);
+        var callerId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var command  = new UpdateAttendanceCommand(
+            callerId,
+            request.CourseGradeId,
+            request.AttendanceScore,
+            request.AttendanceOverridden);
+        var result = await _sender.Send(command);
         return HandleResult(result);
     }
 
     /// <summary>
     /// C5 — TA enters quiz and/or discussion scores for one student.
-    /// Pass the specific QuizGradeId / DiscussionGradeId for each item to update.
-    /// Unknown IDs are silently skipped.
+    /// Body: { courseGradeId, quizScores: [...], discussionScores: [...] }
+    /// CallerAppUserId is NOT in the body — injected from JWT.
     /// </summary>
     [HttpPut("ta/coursework")]
     [Authorize(Roles = "TeachingAssistant")]
-    public async Task<IActionResult> EnterCoursework([FromBody] EnterCourseworkCommand command)
+    public async Task<IActionResult> EnterCoursework([FromBody] EnterCourseworkRequest request)
     {
-        var safeCommand = command with
-        {
-            CallerAppUserId = User.FindFirstValue(ClaimTypes.NameIdentifier)!
-        };
-        var result = await _sender.Send(safeCommand);
+        var callerId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var command  = new EnterCourseworkCommand(
+            callerId,
+            request.CourseGradeId,
+            request.QuizScores,
+            request.DiscussionScores);
+        var result = await _sender.Send(command);
         return HandleResult(result);
     }
 }
