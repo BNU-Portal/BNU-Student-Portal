@@ -2,43 +2,12 @@
 // PURPOSE: Validates all FKs exist then persists a new CourseOffering row.
 //
 // IMPLEMENTATION FLOW:
-// 1) Validate Course, Semester, Professor exist.
-// 2) Ensure no duplicate (CourseId + SemesterId + ProfessorId).
-// 3) Create CourseOffering entity and persist.
-// 4) Return new CourseOfferingId.
-//
-// DETAILED FLOW DIAGRAM:
-//
-//   [Admin Request: Create Offering]
-//            |
-//            v
-//   +----------------------+      +-----------------------------------------+
-//   | Referential Integrity| <--- | Check: Course EXISTS?                   |
-//   | Check (FKs)          |      | Check: Semester EXISTS?                 |
-//   |                      |      | Check: Professor EXISTS?                |
-//   +----------------------+      +-----------------------------------------+
-//            |
-//            v
-//   +----------------------+      +-----------------------------------------+
-//   | Uniqueness Check     | <--- | SELECT * FROM CourseOfferings           |
-//   | (Duplicate Guard)    |      | WHERE CourseId=@C AND SemesterId=@S     |
-//   |                      |      | AND ProfessorId=@P                      |
-//   +----------------------+      +-----------------------------------------+
-//            |
-//            +---> [Exists?] --- (YES) --> [400 Validation Error]
-//            |
-//            v
-//   +----------------------+
-//   | Entity Construction  | --- New Guid() + Mapping Request to Domain
-//   +----------------------+
-//            |
-//            v
-//   +----------------------+
-//   | SQL Database Insert  | <-- INSERT INTO CourseOfferings (...)
-//   +----------------------+
-//            |
-//            v
-//   [200 OK: Offering Created]
+// 1) Validate Course exists by CourseId.
+// 2) Validate Semester exists by SemesterId.
+// 3) Resolve Professor by AppUserId (NOT Professor.Id). Return 404 if not found.
+// 4) Ensure no duplicate (CourseId + SemesterId + ProfessorId).
+// 5) Create CourseOffering entity and persist.
+// 6) Return new CourseOfferingId.
 
 using BNU_Student_Portal_Domain.Entities.Auth;
 using BNU_Student_Portal_Domain.Entities.Courses;
@@ -55,35 +24,42 @@ public class CreateCourseOfferingCommandHandler(IUnitOfWork _uow)
     public async Task<Result<Guid>> Handle(
         CreateCourseOfferingCommand request, CancellationToken ct)
     {
+        // 1) Validate Course
         var courses = await _uow.GetRepository<BNU_Student_Portal_Domain.Entities.Courses.Course, Guid>().GetAllAsync();
         if (!courses.Any(c => c.Id == request.CourseId))
             return Result<Guid>.Fail(
                 Error.NotFound("CourseOffering.CourseNotFound", $"Course {request.CourseId} not found."));
 
+        // 2) Validate Semester
         var semesters = await _uow.GetRepository<BNU_Student_Portal_Domain.Entities.Semesters.Semester, Guid>().GetAllAsync();
         if (!semesters.Any(s => s.Id == request.SemesterId))
             return Result<Guid>.Fail(
                 Error.NotFound("CourseOffering.SemesterNotFound", $"Semester {request.SemesterId} not found."));
 
+        // 3) Resolve Professor by AppUserId (the AppUser FK, not the Professor PK)
         var professors = await _uow.GetRepository<Professor, Guid>().GetAllAsync();
-        if (!professors.Any(p => p.Id == request.ProfessorId))
+        var professor = professors.FirstOrDefault(p => p.AppUserId == request.ProfessorAppUserId);
+        if (professor is null)
             return Result<Guid>.Fail(
-                Error.NotFound("CourseOffering.ProfessorNotFound", $"Professor {request.ProfessorId} not found."));
+                Error.NotFound("CourseOffering.ProfessorNotFound",
+                    $"Professor with AppUserId '{request.ProfessorAppUserId}' not found."));
 
+        // 4) Duplicate guard
         var offerings = await _uow.GetRepository<BNU_Student_Portal_Domain.Entities.Courses.CourseOffering, Guid>().GetAllAsync();
         if (offerings.Any(o =>
-            o.CourseId    == request.CourseId &&
-            o.SemesterId  == request.SemesterId &&
-            o.ProfessorId == request.ProfessorId))
+            o.CourseId    == request.CourseId    &&
+            o.SemesterId  == request.SemesterId  &&
+            o.ProfessorId == professor.Id))
             return Result<Guid>.Fail(
                 Error.Validation("CourseOffering.Duplicate", "This course offering already exists."));
 
+        // 5) Persist
         var offering = new BNU_Student_Portal_Domain.Entities.Courses.CourseOffering
         {
             Id          = Guid.NewGuid(),
             CourseId    = request.CourseId,
             SemesterId  = request.SemesterId,
-            ProfessorId = request.ProfessorId
+            ProfessorId = professor.Id
         };
 
         await _uow.GetRepository<BNU_Student_Portal_Domain.Entities.Courses.CourseOffering, Guid>().AddAsync(offering);
