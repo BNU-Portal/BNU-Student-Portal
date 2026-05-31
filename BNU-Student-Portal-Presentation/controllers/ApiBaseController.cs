@@ -7,7 +7,7 @@ namespace BNU_Student_Portal_Presentation.Controllers
 {
     public abstract class ApiBaseController : ControllerBase
     {
-        protected IActionResult HandleResult(Result result)
+        protected ActionResult HandleResult(Result result)
         {
             if (result.IsSuccess)
                 return NoContent();
