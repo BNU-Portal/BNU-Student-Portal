@@ -5,7 +5,7 @@
 //   using User.FindFirstValue(ClaimTypes.NameIdentifier) inside each action.
 //   It is NEVER read from the request body — this prevents impersonation.
 //
-//   For C1/C4/C5 (commands with CallerAppUserId), we use separate request DTOs
+//   For C1/C4/C5/C6/C7 (commands with CallerAppUserId), we use separate request DTOs
 //   as [FromBody] instead of the command directly. This avoids ASP.NET model
 //   binding rejecting the request with 400 "CallerAppUserId is required" before
 //   the controller action even runs.
@@ -22,6 +22,8 @@
 //   GET  /api/grades/ta/section/{id}                → Q6 TA section grade list
 //   PUT  /api/grades/ta/attendance                  → C4 update attendance
 //   PUT  /api/grades/ta/coursework                  → C5 enter quiz/discussion scores
+//   POST /api/grades/ta/quizzes                     → C6 create quiz + seed QuizGrades
+//   POST /api/grades/ta/discussions                 → C7 create discussion + seed DiscussionGrades
 
 using BNU_Student_Portal_Services.Features.Grades.Professor.Commands.EnterGrade;
 using BNU_Student_Portal_Services.Features.Grades.Professor.Commands.PublishGrades;
@@ -29,6 +31,8 @@ using BNU_Student_Portal_Services.Features.Grades.Professor.Commands.UnpublishGr
 using BNU_Student_Portal_Services.Features.Grades.Professor.Queries;
 using BNU_Student_Portal_Services.Features.Grades.Student.GradesPerSemester.Queries;
 using BNU_Student_Portal_Services.Features.Grades.Student.SemesterTab.Queries;
+using BNU_Student_Portal_Services.Features.Grades.TA.Commands.CreateDiscussion;
+using BNU_Student_Portal_Services.Features.Grades.TA.Commands.CreateQuiz;
 using BNU_Student_Portal_Services.Features.Grades.TA.Commands.EnterCoursework;
 using BNU_Student_Portal_Services.Features.Grades.TA.Commands.UpdateAttendance;
 using BNU_Student_Portal_Services.Features.Grades.TA.Queries;
@@ -39,7 +43,7 @@ using System.Security.Claims;
 
 namespace BNU_Student_Portal_Presentation.Controllers;
 
-// ── Request DTOs (body only — no CallerAppUserId) ───────────────────────────
+// ── Request DTOs (body only — no CallerAppUserId) ──────────────────────────────
 // These are what the client actually sends. CallerAppUserId is injected from JWT.
 
 /// <summary>Body for PUT /api/grades/professor/grade</summary>
@@ -62,7 +66,19 @@ public record EnterCourseworkRequest(
     IEnumerable<QuizScoreItem>        QuizScores,
     IEnumerable<DiscussionScoreItem>  DiscussionScores);
 
-// ── Controller ───────────────────────────────────────────────────────────────
+/// <summary>Body for POST /api/grades/ta/quizzes</summary>
+public record CreateQuizRequest(
+    Guid    SectionId,
+    string  Title,
+    decimal MaxScore);
+
+/// <summary>Body for POST /api/grades/ta/discussions</summary>
+public record CreateDiscussionRequest(
+    Guid    SectionId,
+    string  Title,
+    decimal MaxScore);
+
+// ── Controller ──────────────────────────────────────────────────────────────────
 
 [ApiController]
 [Route("api/grades")]
@@ -148,7 +164,6 @@ public class GradesController(ISender _sender) : ApiBaseController
 
     /// <summary>
     /// C2 — Professor publishes all ready grades for one course offering.
-    /// Only grades with a FinalExamScore are published.
     /// </summary>
     [HttpPost("professor/courses/{courseOfferingId:guid}/publish")]
     [Authorize(Roles = "Professor")]
@@ -221,6 +236,7 @@ public class GradesController(ISender _sender) : ApiBaseController
     /// <summary>
     /// C5 — TA enters quiz and/or discussion scores for one student.
     /// Body: { courseGradeId, quizScores: [...], discussionScores: [...] }
+    /// Use the QuizGradeIds and DiscussionGradeIds returned from C6/C7.
     /// CallerAppUserId is NOT in the body — injected from JWT.
     /// </summary>
     [HttpPut("ta/coursework")]
@@ -233,6 +249,48 @@ public class GradesController(ISender _sender) : ApiBaseController
             request.CourseGradeId,
             request.QuizScores,
             request.DiscussionScores);
+        var result = await _sender.Send(command);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// C6 — TA creates a new Quiz for their section.
+    /// Seeds one QuizGrade (Score=0) per enrolled student automatically.
+    /// Response includes QuizId + list of { StudentName, CourseGradeId, QuizGradeId }
+    /// — use these QuizGradeIds in C5 to enter actual scores.
+    /// Body: { sectionId, title, maxScore }
+    /// </summary>
+    [HttpPost("ta/quizzes")]
+    [Authorize(Roles = "TeachingAssistant")]
+    public async Task<IActionResult> CreateQuiz([FromBody] CreateQuizRequest request)
+    {
+        var callerId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var command  = new CreateQuizCommand(
+            callerId,
+            request.SectionId,
+            request.Title,
+            request.MaxScore);
+        var result = await _sender.Send(command);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// C7 — TA creates a new Discussion for their section.
+    /// Seeds one DiscussionGrade (Score=0) per enrolled student automatically.
+    /// Response includes DiscussionId + list of { StudentName, CourseGradeId, DiscussionGradeId }
+    /// — use these DiscussionGradeIds in C5 to enter actual scores.
+    /// Body: { sectionId, title, maxScore }
+    /// </summary>
+    [HttpPost("ta/discussions")]
+    [Authorize(Roles = "TeachingAssistant")]
+    public async Task<IActionResult> CreateDiscussion([FromBody] CreateDiscussionRequest request)
+    {
+        var callerId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var command  = new CreateDiscussionCommand(
+            callerId,
+            request.SectionId,
+            request.Title,
+            request.MaxScore);
         var result = await _sender.Send(command);
         return HandleResult(result);
     }
