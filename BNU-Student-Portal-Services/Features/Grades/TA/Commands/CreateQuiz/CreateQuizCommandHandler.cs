@@ -3,46 +3,48 @@
 //
 // FLOW:
 //   1. Resolve TA from CallerAppUserId
-//   2. Load the CourseSection and verify TA owns it
-//   3. Check IsPublished is false (cannot add quizzes after grades are published)
-//   4. Create Quiz row
-//   5. Load all CourseGrades for students in this section
-//   6. Seed one QuizGrade (Score=0) per student
-//   7. SaveChangesAsync
-//   8. Return Ok with the new QuizId + list of { StudentName, QuizGradeId }
+//   2. Load all sections — find the one matching SectionId and verify TA owns it
+//   3. Validate MaxScore > 0
+//   4. Create Quiz row via UoW
+//   5. Load all CourseGrades — filter by EnrollmentId chain to find students in section
+//   6. Load all enrollments to resolve which grades belong to this section
+//   7. Seed one QuizGrade (Score=0) per student
+//   8. SaveChangesAsync
+//   9. Return Ok with QuizId + list of { StudentName, CourseGradeId, QuizGradeId }
 
-using BNU_Student_Portal_Persistence.Data.DbContext;
+using BNU_Student_Portal_Domain.Entities.Auth;
+using BNU_Student_Portal_Domain.Entities.Courses;
 using BNU_Student_Portal_Domain.Entities.Grades;
 using BNU_Student_Portal_Domain.Entities.Quizzes;
+using BNU_Student_Portal_Domain.Entities.Sections;
+using BNU_Student_Portal_Domain.Interfaces;
 using BNU_Student_Portal_Shared_Library.SharedResponse;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 
 namespace BNU_Student_Portal_Services.Features.Grades.TA.Commands.CreateQuiz;
 
-public class CreateQuizCommandHandler(
-    BNU_Student_Portal_DbContext _db)
+public class CreateQuizCommandHandler(IUnitOfWork _uow)
     : IRequestHandler<CreateQuizCommand, Result>
 {
     public async Task<Result> Handle(CreateQuizCommand cmd, CancellationToken ct)
     {
         // 1. Resolve TA
-        var ta = await _db.TeachingAssistants
-            .FirstOrDefaultAsync(t => t.AppUserId == cmd.CallerAppUserId, ct);
+        var tas = await _uow.GetRepository<TeachingAssistant, Guid>().GetAllAsync();
+        var ta  = tas.FirstOrDefault(t => t.AppUserId == cmd.CallerAppUserId);
         if (ta is null)
-            return Result.Failure("Teaching assistant not found.");
+            return Result<object>.Fail(Error.NotFound("Grades.TaNotFound", "Teaching assistant not found."));
 
-        // 2. Load section and verify ownership
-        var section = await _db.CourseSections
-            .FirstOrDefaultAsync(s => s.Id == cmd.SectionId, ct);
+        // 2. Load section and verify TA owns it
+        var sections = await _uow.GetRepository<CourseSection, Guid>().GetAllAsync();
+        var section  = sections.FirstOrDefault(s => s.Id == cmd.SectionId);
         if (section is null)
-            return Result.Failure("Section not found.");
+            return Result<object>.Fail(Error.NotFound("Grades.SectionNotFound", "Section not found."));
         if (section.TeachingAssistantId != ta.Id)
-            return Result.Failure("You are not assigned to this section.");
+            return Result<object>.Fail(Error.Forbidden("Grades.Forbidden", "You are not assigned to this section."));
 
         // 3. Validate MaxScore
         if (cmd.MaxScore <= 0)
-            return Result.Failure("MaxScore must be greater than zero.");
+            return Result<object>.Fail(Error.BadRequest("Grades.InvalidMaxScore", "MaxScore must be greater than zero."));
 
         // 4. Create Quiz
         var quiz = new Quiz
@@ -52,20 +54,20 @@ public class CreateQuizCommandHandler(
             Title           = cmd.Title.Trim(),
             MaxScore        = cmd.MaxScore
         };
-        _db.Quizzes.Add(quiz);
+        await _uow.GetRepository<Quiz, Guid>().AddAsync(quiz);
 
-        // 5. Load all CourseGrades for students enrolled in this section
-        var courseGrades = await _db.CourseGrades
-            .Include(g => g.Enrollment)
-                .ThenInclude(e => e.Student)
-                    .ThenInclude(s => s.AppUser)
-            .Where(g => g.Enrollment.CourseSectionId == cmd.SectionId)
-            .ToListAsync(ct);
+        // 5. Load enrollments to find students in this section
+        var enrollments = await _uow.GetRepository<StudentSectionEnrollment, Guid>().GetAllAsync();
+        var sectionEnrollments = enrollments.Where(e => e.CourseSectionId == cmd.SectionId).ToList();
+        if (sectionEnrollments.Count == 0)
+            return Result<object>.Fail(Error.BadRequest("Grades.NoStudents", "No enrolled students found in this section."));
 
-        if (courseGrades.Count == 0)
-            return Result.Failure("No enrolled students found in this section.");
+        // 6. Load CourseGrades and match by EnrollmentId
+        var allGrades    = await _uow.GetRepository<CourseGrade, Guid>().GetAllAsync();
+        var enrollmentIds = sectionEnrollments.Select(e => e.Id).ToHashSet();
+        var courseGrades  = allGrades.Where(g => enrollmentIds.Contains(g.EnrollmentId)).ToList();
 
-        // 6. Seed one QuizGrade per student (Score = 0)
+        // 7. Seed one QuizGrade per student (Score = 0)
         var quizGrades = courseGrades.Select(cg => new QuizGrade
         {
             Id            = Guid.NewGuid(),
@@ -75,22 +77,22 @@ public class CreateQuizCommandHandler(
             Note          = null
         }).ToList();
 
-        _db.QuizGrades.AddRange(quizGrades);
+        foreach (var qg in quizGrades)
+            await _uow.GetRepository<QuizGrade, Guid>().AddAsync(qg);
 
-        // 7. Save
-        await _db.SaveChangesAsync(ct);
+        // 8. Save everything in one transaction
+        await _uow.SaveChangesAsync();
 
-        // 8. Return QuizId + per-student QuizGradeIds for use in EnterCoursework
+        // 9. Return QuizId + per-student QuizGradeIds for use in C5 EnterCoursework
         var studentEntries = courseGrades
             .Zip(quizGrades, (cg, qg) => new
             {
-                StudentName = cg.Enrollment.Student.AppUser.UserName,
                 CourseGradeId = cg.Id,
                 QuizGradeId   = qg.Id
             })
             .ToList();
 
-        return Result.Ok(new
+        return Result<object>.Ok(new
         {
             QuizId   = quiz.Id,
             Title    = quiz.Title,
