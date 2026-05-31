@@ -29,7 +29,7 @@ public class GetCourseGradeDetailQueryHandler(IUnitOfWork _uow)
         GetCourseGradeDetailQuery request, CancellationToken ct)
     {
         // ── Step 1: Resolve student ──────────────────────────────────────────
-        var students = await _uow.GetRepository<Student, Guid>().GetAllAsync();
+        var students = await _uow.GetRepository<BNU_Student_Portal_Domain.Entities.Auth.Student, Guid>().GetAllAsync();
         var student  = students.FirstOrDefault(s => s.AppUserId == request.CallerAppUserId);
         if (student is null)
             return Result<CourseGradeDetailDto>.Fail(

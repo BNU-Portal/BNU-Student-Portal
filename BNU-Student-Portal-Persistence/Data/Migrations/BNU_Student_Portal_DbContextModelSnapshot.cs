@@ -384,6 +384,9 @@ namespace BNU_Student_Portal_Persistence.Data.Migrations
                     b.Property<Guid>("CourseOfferingId")
                         .HasColumnType("uuid");
 
+                    b.Property<int>("MaxStudents")
+                        .HasColumnType("integer");
+
                     b.Property<string>("SectionName")
                         .IsRequired()
                         .HasColumnType("text");
