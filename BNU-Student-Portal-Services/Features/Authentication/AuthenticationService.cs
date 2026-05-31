@@ -173,15 +173,15 @@ namespace BNU_Student_Portal_Services.Features.Authentication
             string name, string email, string nationalId,
             string nationality, DateOnly dob, string gender, string? phone) => new()
         {
-            UserName    = email,
-            Email       = email,
-            Name        = name,
-            NationalId  = nationalId,
+            UserName = email,
+            Email = email,
+            Name = name,
+            NationalId = nationalId,
             Nationality = nationality,
             DateOfBirth = dob,
-            Gender      = Enum.Parse<Gender>(gender, ignoreCase: true),
+            Gender = Enum.Parse<Gender>(gender, ignoreCase: true),
             PhoneNumber = phone,
-            CreatedAt   = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow
         };
 
         // ───────────────────────────────────────────────────────────────────────
@@ -209,8 +209,8 @@ namespace BNU_Student_Portal_Services.Features.Authentication
         private static string GenerateRefreshToken()
         {
             var bytes = new byte[64];
-            RandomNumberGenerator.Fill(bytes);        // OS-level true randomness
-            return Convert.ToBase64String(bytes);     // → safe 88-char Base64 string
+            RandomNumberGenerator.Fill(bytes); // OS-level true randomness
+            return Convert.ToBase64String(bytes); // → safe 88-char Base64 string
         }
 
         /// <summary>
@@ -273,8 +273,8 @@ namespace BNU_Student_Portal_Services.Features.Authentication
         {
             // Load JWT config from appsettings.json → "JwtSettings" section
             var jwtSettings = config.GetSection("JwtSettings").Get<JwtSettings>()
-                ?? throw new InvalidOperationException(
-                    "JwtSettings section is missing from appsettings.json.");
+                              ?? throw new InvalidOperationException(
+                                  "JwtSettings section is missing from appsettings.json.");
 
             // Get all roles assigned to this user in ASP.NET Identity
             var roles = await userManager.GetRolesAsync(user);
@@ -288,11 +288,11 @@ namespace BNU_Student_Portal_Services.Features.Authentication
             // NEVER put passwords, secrets, or sensitive data in claims.
             var claims = new List<Claim>
             {
-                new(ClaimTypes.NameIdentifier,   user.Id),         // primary key in AspNetUsers
-                new(ClaimTypes.Email,            user.Email!),     // user's email
-                new(ClaimTypes.Name,             user.Name),       // full display name
-                new("NationalId",                user.NationalId), // BNU custom claim
-                new(JwtRegisteredClaimNames.Jti, jti)              // ← THE TOKEN FINGERPRINT
+                new(ClaimTypes.NameIdentifier, user.Id), // primary key in AspNetUsers
+                new(ClaimTypes.Email, user.Email!), // user's email
+                new(ClaimTypes.Name, user.Name), // full display name
+                new("NationalId", user.NationalId), // BNU custom claim
+                new(JwtRegisteredClaimNames.Jti, jti) // ← THE TOKEN FINGERPRINT
             };
 
             // Add one Role claim per role (e.g. "Student", "Professor", "Admin").
@@ -301,15 +301,15 @@ namespace BNU_Student_Portal_Services.Features.Authentication
 
             // Build the signing key from the secret string in config.
             // SymmetricSecurityKey: same key signs AND verifies — keep it SECRET.
-            var key   = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Key));
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Key));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
             // Assemble the complete JWT object.
             var jwt = new JwtSecurityToken(
-                issuer:             jwtSettings.Issuer,
-                audience:           jwtSettings.Audience,
-                claims:             claims,
-                expires:            DateTime.UtcNow.AddMinutes(jwtSettings.AccessTokenExpiryMinutes),
+                issuer: jwtSettings.Issuer,
+                audience: jwtSettings.Audience,
+                claims: claims,
+                expires: DateTime.UtcNow.AddMinutes(jwtSettings.AccessTokenExpiryMinutes),
                 signingCredentials: creds);
 
             // Serialize to compact form: Base64Url(header).Base64Url(payload).signature
@@ -337,22 +337,22 @@ namespace BNU_Student_Portal_Services.Features.Authentication
         private ClaimsPrincipal GetPrincipalFromExpiredToken(string token)
         {
             var jwtSettings = config.GetSection("JwtSettings").Get<JwtSettings>()
-                ?? throw new InvalidOperationException(
-                    "JwtSettings section is missing from appsettings.json.");
+                              ?? throw new InvalidOperationException(
+                                  "JwtSettings section is missing from appsettings.json.");
 
             var parameters = new TokenValidationParameters
             {
-                ValidateIssuer           = true,
-                ValidateAudience         = true,
-                ValidateLifetime         = false,  // ← INTENTIONALLY ignore expiry
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = false, // ← INTENTIONALLY ignore expiry
                 ValidateIssuerSigningKey = true,
-                ValidIssuer              = jwtSettings.Issuer,
-                ValidAudience            = jwtSettings.Audience,
-                IssuerSigningKey         = new SymmetricSecurityKey(
-                                               Encoding.UTF8.GetBytes(jwtSettings.Key))
+                ValidIssuer = jwtSettings.Issuer,
+                ValidAudience = jwtSettings.Audience,
+                IssuerSigningKey = new SymmetricSecurityKey(
+                    Encoding.UTF8.GetBytes(jwtSettings.Key))
             };
 
-            var handler   = new JwtSecurityTokenHandler();
+            var handler = new JwtSecurityTokenHandler();
             var principal = handler.ValidateToken(token, parameters, out var validatedToken);
 
             // Reject tokens that are not signed with HMAC-SHA256.
@@ -429,10 +429,10 @@ namespace BNU_Student_Portal_Services.Features.Authentication
             var repo = unitOfWork.GetRepository<RefreshToken, Guid>();
             await repo.AddAsync(new RefreshToken
             {
-                Id        = Guid.NewGuid(),
-                TokenHash = tokenHash,                 // SHA-256 hash — safe to store
-                JwtId     = jti,                       // ← binds this row to the JWT above
-                UserId    = user.Id,                   // session owner
+                Id = Guid.NewGuid(),
+                TokenHash = tokenHash, // SHA-256 hash — safe to store
+                JwtId = jti, // ← binds this row to the JWT above
+                UserId = user.Id, // session owner
                 ExpiresAt = DateTime.UtcNow.AddDays(7) // refresh window = 7 days
                 // UsedAt   = null → not yet consumed
                 // RevokedAt = null → not revoked
@@ -444,7 +444,7 @@ namespace BNU_Student_Portal_Services.Features.Authentication
             // Client stores accessToken in memory, refreshToken in HttpOnly cookie
             return Result<LoginReturnDto>.Ok(new LoginReturnDto
             {
-                AccessToken  = accessToken,    // short-lived JWT (15–60 min)
+                AccessToken = accessToken, // short-lived JWT (15–60 min)
                 RefreshToken = rawRefreshToken // long-lived opaque secret (7 days)
             });
         }
@@ -495,7 +495,7 @@ namespace BNU_Student_Portal_Services.Features.Authentication
 
             // Extract the two values we need from the access token claims
             var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier);
-            var jti    = principal.FindFirstValue(JwtRegisteredClaimNames.Jti);
+            var jti = principal.FindFirstValue(JwtRegisteredClaimNames.Jti);
             // jti is the link — it must match the DB row's JwtId below
 
             // ── Step 2: Hash the incoming raw refresh token ─────────────────────
@@ -508,15 +508,15 @@ namespace BNU_Student_Portal_Services.Features.Authentication
             // FirstOrDefault on the materialised collection.
             // This avoids the ParallelEnumerable type-inference issue that occurs
             // when calling FirstOrDefault directly on IQueryable/ParallelQuery.
-            var repo   = unitOfWork.GetRepository<RefreshToken, Guid>();
-            var all    = await repo.GetAllAsync();
+            var repo = unitOfWork.GetRepository<RefreshToken, Guid>();
+            var all = await repo.GetAllAsync();
             var stored = all.FirstOrDefault(x => x.TokenHash == incomingHash);
 
             // ── Step 4: Security validation — ALL checks must pass ───────────────
-            if (stored is null            // hash not found → token was never issued
+            if (stored is null // hash not found → token was never issued
                 || stored.UserId != userId // token belongs to a DIFFERENT user
-                || stored.JwtId  != jti   // ← jti mismatch: tokens not from same pair
-                || !stored.IsActive)      // already used, revoked, or past ExpiresAt
+                || stored.JwtId != jti // ← jti mismatch: tokens not from same pair
+                || !stored.IsActive) // already used, revoked, or past ExpiresAt
             {
                 // Return the same error for all failures — prevents info leaks
                 // (attacker cannot tell WHICH check failed)
@@ -529,14 +529,14 @@ namespace BNU_Student_Portal_Services.Features.Authentication
             // ── Step 5: Rotate — mark the old token as consumed ─────────────────
             // UsedAt  → records the exact moment it was consumed (audit log)
             // RevokedAt → makes IsActive = false, blocking any future use
-            stored.UsedAt    = DateTime.UtcNow;
+            stored.UsedAt = DateTime.UtcNow;
             stored.RevokedAt = DateTime.UtcNow;
 
             // ── Step 6: Generate a completely new token pair ─────────────────────
             var user = await userManager.FindByIdAsync(userId!);
             var (newAccessToken, newJti) = await GenerateAccessTokenAsync(user!);
-            var newRawRefreshToken       = GenerateRefreshToken();
-            var newTokenHash             = ComputeSha256Hash(newRawRefreshToken);
+            var newRawRefreshToken = GenerateRefreshToken();
+            var newTokenHash = ComputeSha256Hash(newRawRefreshToken);
 
             // ── Step 7: Record the rotation chain (audit trail) ─────────────────
             // old row's ReplacedByTokenHash points to the new row's hash.
@@ -546,10 +546,10 @@ namespace BNU_Student_Portal_Services.Features.Authentication
             // ── Step 8: Persist the new refresh token row ────────────────────────
             await repo.AddAsync(new RefreshToken
             {
-                Id        = Guid.NewGuid(),
+                Id = Guid.NewGuid(),
                 TokenHash = newTokenHash,
-                JwtId     = newJti,                    // new JWT's jti
-                UserId    = user!.Id,
+                JwtId = newJti, // new JWT's jti
+                UserId = user!.Id,
                 ExpiresAt = DateTime.UtcNow.AddDays(7)
             });
 
@@ -558,7 +558,7 @@ namespace BNU_Student_Portal_Services.Features.Authentication
             // ── Step 9: Return the fresh token pair ──────────────────────────────
             return Result<LoginReturnDto>.Ok(new LoginReturnDto
             {
-                AccessToken  = newAccessToken,
+                AccessToken = newAccessToken,
                 RefreshToken = newRawRefreshToken
             });
         }
@@ -584,7 +584,7 @@ namespace BNU_Student_Portal_Services.Features.Authentication
 
             // Load all and find by hash — same pattern as RefreshTokenAsync
             // to avoid ParallelEnumerable type-inference issues.
-            var all    = await repo.GetAllAsync();
+            var all = await repo.GetAllAsync();
             var stored = all.FirstOrDefault(x => x.TokenHash == hash);
 
             if (stored is null || !stored.IsActive)
@@ -622,20 +622,41 @@ namespace BNU_Student_Portal_Services.Features.Authentication
                         $"An account with email '{dto.Email}' already exists."));
 
             var user = BuildAppUser(dto.Name, dto.Email, dto.NationalId,
-                           dto.Nationality, dto.DateOfBirth, dto.Gender, dto.PhoneNumber);
-
+                dto.Nationality, dto.DateOfBirth, dto.Gender, dto.PhoneNumber);
 
             var defaultPassword = $"Bnu@{dto.NationalId}";
 
+            // ✅ Map FIRST — catch any mapping errors BEFORE touching the DB
+            Student student;
+            try
+            {
+                student = mapper.Map<Student>(dto);
+            }
+            catch (Exception ex)
+            {
+                return Result<object>.Fail(
+                    Error.BadRequest("Auth.MappingError", ex.Message));
+            }
+
+            // Now create the Identity user
             var result = await userManager.CreateAsync(user, defaultPassword);
             if (!result.Succeeded) return IdentityFailed(result.Errors);
 
-            await userManager.AddToRoleAsync(user, "Student");
+            // Assign role + save Student — if this fails, clean up the Identity user
+            try
+            {
+                await userManager.AddToRoleAsync(user, "Student");
 
-            var student = mapper.Map<Student>(dto);
-            student.AppUserId = user.Id;
-            await unitOfWork.GetRepository<Student, Guid>().AddAsync(student);
-            await unitOfWork.SaveChangesAsync();
+                student.AppUserId = user.Id;
+                await unitOfWork.GetRepository<Student, Guid>().AddAsync(student);
+                await unitOfWork.SaveChangesAsync();
+            }
+            catch (Exception)
+            {
+                // 🔄 Rollback: delete the Identity user we just created
+                await userManager.DeleteAsync(user);
+                throw; // let middleware handle it
+            }
 
             return Result<object>.Ok(student);
         }
@@ -647,18 +668,28 @@ namespace BNU_Student_Portal_Services.Features.Authentication
                     Error.BadRequest("Auth.DuplicateEmail",
                         $"An account with email '{dto.Email}' already exists."));
 
-            var user = BuildAppUser(dto.Name, dto.Email, dto.NationalId,
-                           dto.Nationality, dto.DateOfBirth, dto.Gender, dto.PhoneNumber);
+            // ✅ Map FIRST
+            var professor = mapper.Map<Professor>(dto);
 
-            var result = await userManager.CreateAsync(user, dto.NationalId);
+            var user = BuildAppUser(dto.Name, dto.Email, dto.NationalId,
+                dto.Nationality, dto.DateOfBirth, dto.Gender, dto.PhoneNumber);
+
+            var defaultPassword = $"Bnu@{dto.NationalId}"; // ✅ also fixes the password bug
+            var result = await userManager.CreateAsync(user, defaultPassword);
             if (!result.Succeeded) return IdentityFailed(result.Errors);
 
-            await userManager.AddToRoleAsync(user, "Professor");
-
-            var professor = mapper.Map<Professor>(dto);
-            professor.AppUserId = user.Id;
-            await unitOfWork.GetRepository<Professor, Guid>().AddAsync(professor);
-            await unitOfWork.SaveChangesAsync();
+            try
+            {
+                await userManager.AddToRoleAsync(user, "Professor");
+                professor.AppUserId = user.Id;
+                await unitOfWork.GetRepository<Professor, Guid>().AddAsync(professor);
+                await unitOfWork.SaveChangesAsync();
+            }
+            catch (Exception)
+            {
+                await userManager.DeleteAsync(user); // 🔄 rollback Identity user
+                throw;
+            }
 
             return Result<object>.Ok(professor);
         }
@@ -670,23 +701,31 @@ namespace BNU_Student_Portal_Services.Features.Authentication
                     Error.BadRequest("Auth.DuplicateEmail",
                         $"An account with email '{dto.Email}' already exists."));
 
-            var user = BuildAppUser(dto.Name, dto.Email, dto.NationalId,
-                           dto.Nationality, dto.DateOfBirth, dto.Gender, dto.PhoneNumber);
+            // ✅ Map FIRST
+            var ta = mapper.Map<TeachingAssistant>(dto);
 
-            var result = await userManager.CreateAsync(user, dto.NationalId);
+            var user = BuildAppUser(dto.Name, dto.Email, dto.NationalId,
+                dto.Nationality, dto.DateOfBirth, dto.Gender, dto.PhoneNumber);
+
+            var defaultPassword = $"Bnu@{dto.NationalId}"; // ✅ also fixes the password bug
+            var result = await userManager.CreateAsync(user, defaultPassword);
             if (!result.Succeeded) return IdentityFailed(result.Errors);
 
-            await userManager.AddToRoleAsync(user, "TeachingAssistant");
-
-            var ta = mapper.Map<TeachingAssistant>(dto);
-            ta.AppUserId = user.Id;
-            await unitOfWork.GetRepository<TeachingAssistant, Guid>().AddAsync(ta);
-            await unitOfWork.SaveChangesAsync();
+            try
+            {
+                await userManager.AddToRoleAsync(user, "TeachingAssistant");
+                ta.AppUserId = user.Id;
+                await unitOfWork.GetRepository<TeachingAssistant, Guid>().AddAsync(ta);
+                await unitOfWork.SaveChangesAsync();
+            }
+            catch (Exception)
+            {
+                await userManager.DeleteAsync(user); // 🔄 rollback Identity user
+                throw;
+            }
 
             return Result<object>.Ok(ta);
         }
-
-
         // ═══════════════════════════════════════════════════════════════════════
         // PASSWORD MANAGEMENT
         // ═══════════════════════════════════════════════════════════════════════
@@ -701,7 +740,7 @@ namespace BNU_Student_Portal_Services.Features.Authentication
         public async Task<Result<bool>> ResetPasswordAsync(ChangePasswordDto dto)
         {
             var email = httpContextAccessor.HttpContext!.User
-                            .FindFirstValue(ClaimTypes.Email);
+                .FindFirstValue(ClaimTypes.Email);
 
             if (email is null)
                 return Result<bool>.Fail(
@@ -718,8 +757,8 @@ namespace BNU_Student_Portal_Services.Features.Authentication
             if (!result.Succeeded)
                 return Result<bool>.Fail(
                     result.Errors
-                          .Select(e => Error.Validation(e.Code, e.Description))
-                          .ToList());
+                        .Select(e => Error.Validation(e.Code, e.Description))
+                        .ToList());
 
             return Result<bool>.Ok(true);
         }
@@ -745,8 +784,8 @@ namespace BNU_Student_Portal_Services.Features.Authentication
             if (!result.Succeeded)
                 return Result<bool>.Fail(
                     result.Errors
-                          .Select(e => Error.Validation(e.Code, e.Description))
-                          .ToList());
+                        .Select(e => Error.Validation(e.Code, e.Description))
+                        .ToList());
 
             return Result<bool>.Ok(true);
         }
