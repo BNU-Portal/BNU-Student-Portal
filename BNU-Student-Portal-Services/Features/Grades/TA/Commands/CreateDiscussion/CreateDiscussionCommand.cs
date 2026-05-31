@@ -15,4 +15,4 @@ public record CreateDiscussionCommand(
     Guid    SectionId,
     string  Title,
     decimal MaxScore)
-    : IRequest<Result>;
+    : IRequest<Result<CreateDiscussionResponse>>;

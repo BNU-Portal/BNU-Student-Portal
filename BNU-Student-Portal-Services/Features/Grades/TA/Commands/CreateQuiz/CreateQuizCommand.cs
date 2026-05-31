@@ -15,4 +15,4 @@ public record CreateQuizCommand(
     Guid    SectionId,
     string  Title,
     decimal MaxScore)
-    : IRequest<Result>;
+    : IRequest<Result<CreateQuizResponse>>;
