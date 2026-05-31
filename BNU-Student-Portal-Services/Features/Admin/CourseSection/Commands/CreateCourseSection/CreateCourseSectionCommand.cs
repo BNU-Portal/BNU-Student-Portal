@@ -2,17 +2,8 @@
 // PURPOSE: Admin creates a section under a CourseOffering and assigns a TA.
 //
 // NOTE: TaAppUserId is the AppUser.Id (string FK), NOT the TeachingAssistant.Id (PK).
-//       The handler resolves TeachingAssistant.Id from AppUserId internally.
-//
-// FLOW DIAGRAM:
-// [POST /api/admin/course-sections]
-//    -> [CreateCourseSectionCommand(CourseOfferingId, TaAppUserId, SectionName)]
-//    -> [CreateCourseSectionCommandHandler]
-//         | validate offering exists
-//         | resolve TA by AppUserId -> get TeachingAssistant.Id (PK)
-//         | copy SemesterId from offering
-//         | persist section
-//    -> returns CourseSectionId (used for enrollments)
+//       MaxStudents defaults to 25 if not provided.
+//       Admin enrollment bypasses the MaxStudents cap.
 
 using BNU_Student_Portal_Shared_Library.SharedResponse;
 using MediatR;
@@ -22,5 +13,6 @@ namespace BNU_Student_Portal_Services.Features.Admin.CourseSection.Commands.Crea
 public record CreateCourseSectionCommand(
     Guid   CourseOfferingId,
     string TaAppUserId,
-    string SectionName)
+    string SectionName,
+    int    MaxStudents = 25)
     : IRequest<Result<Guid>>;
