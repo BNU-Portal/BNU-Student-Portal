@@ -1,11 +1,15 @@
 // FILE: Features/Admin/CourseSection/Commands/CreateCourseSection/CreateCourseSectionCommand.cs
 // PURPOSE: Admin creates a section under a CourseOffering and assigns a TA.
 //
+// NOTE: TaAppUserId is the AppUser.Id (string FK), NOT the TeachingAssistant.Id (PK).
+//       The handler resolves TeachingAssistant.Id from AppUserId internally.
+//
 // FLOW DIAGRAM:
 // [POST /api/admin/course-sections]
-//    -> [CreateCourseSectionCommand(CourseOfferingId, TeachingAssistantId, SectionName)]
+//    -> [CreateCourseSectionCommand(CourseOfferingId, TaAppUserId, SectionName)]
 //    -> [CreateCourseSectionCommandHandler]
-//         | validate offering + TA
+//         | validate offering exists
+//         | resolve TA by AppUserId -> get TeachingAssistant.Id (PK)
 //         | copy SemesterId from offering
 //         | persist section
 //    -> returns CourseSectionId (used for enrollments)
@@ -17,6 +21,6 @@ namespace BNU_Student_Portal_Services.Features.Admin.CourseSection.Commands.Crea
 
 public record CreateCourseSectionCommand(
     Guid   CourseOfferingId,
-    Guid   TeachingAssistantId,
+    string TaAppUserId,
     string SectionName)
     : IRequest<Result<Guid>>;
