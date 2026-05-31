@@ -26,7 +26,7 @@ public class EnrollStudentCommandHandler(IUnitOfWork _uow)
         EnrollStudentCommand request, CancellationToken ct)
     {
         // 1) Resolve Student by AppUserId (not PK)
-        var students = await _uow.GetRepository<Student, Guid>().GetAllAsync();
+        var students = await _uow.GetRepository<BNU_Student_Portal_Domain.Entities.Auth.Student, Guid>().GetAllAsync();
         var student  = students.FirstOrDefault(s => s.AppUserId == request.StudentAppUserId);
         if (student is null)
             return Result<EnrollmentResult>.Fail(

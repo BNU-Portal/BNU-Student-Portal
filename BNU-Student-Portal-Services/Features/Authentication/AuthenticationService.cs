@@ -627,10 +627,10 @@ namespace BNU_Student_Portal_Services.Features.Authentication
             var defaultPassword = $"Bnu@{dto.NationalId}";
 
             // ✅ Map FIRST — catch any mapping errors BEFORE touching the DB
-            Student student;
+            BNU_Student_Portal_Domain.Entities.Auth.Student student;
             try
             {
-                student = mapper.Map<Student>(dto);
+                student = mapper.Map<BNU_Student_Portal_Domain.Entities.Auth.Student>(dto);
             }
             catch (Exception ex)
             {
@@ -648,7 +648,7 @@ namespace BNU_Student_Portal_Services.Features.Authentication
                 await userManager.AddToRoleAsync(user, "Student");
 
                 student.AppUserId = user.Id;
-                await unitOfWork.GetRepository<Student, Guid>().AddAsync(student);
+                await unitOfWork.GetRepository<BNU_Student_Portal_Domain.Entities.Auth.Student, Guid>().AddAsync(student);
                 await unitOfWork.SaveChangesAsync();
             }
             catch (Exception)

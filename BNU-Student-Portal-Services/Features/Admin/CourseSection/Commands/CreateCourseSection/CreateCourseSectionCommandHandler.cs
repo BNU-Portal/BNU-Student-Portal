@@ -23,7 +23,7 @@ public class CreateCourseSectionCommandHandler(IUnitOfWork _uow)
         CreateCourseSectionCommand request, CancellationToken ct)
     {
         // 1) Validate CourseOffering
-        var offerings = await _uow.GetRepository<CourseOffering, Guid>().GetAllAsync();
+        var offerings = await _uow.GetRepository<BNU_Student_Portal_Domain.Entities.Courses.CourseOffering, Guid>().GetAllAsync();
         var offering  = offerings.FirstOrDefault(o => o.Id == request.CourseOfferingId);
         if (offering is null)
             return Result<Guid>.Fail(
@@ -39,7 +39,7 @@ public class CreateCourseSectionCommandHandler(IUnitOfWork _uow)
                     $"TeachingAssistant with AppUserId '{request.TaAppUserId}' not found."));
 
         // 3) Build section — inherit SemesterId from offering
-        var section = new CourseSection
+        var section = new BNU_Student_Portal_Domain.Entities.Courses.CourseSection
         {
             Id                  = Guid.NewGuid(),
             CourseOfferingId    = offering.Id,
@@ -49,7 +49,7 @@ public class CreateCourseSectionCommandHandler(IUnitOfWork _uow)
             TeachingAssistantId = ta.Id
         };
 
-        await _uow.GetRepository<CourseSection, Guid>().AddAsync(section);
+        await _uow.GetRepository<BNU_Student_Portal_Domain.Entities.Courses.CourseSection, Guid>().AddAsync(section);
         await _uow.SaveChangesAsync();
 
         return Result<Guid>.Ok(section.Id);
