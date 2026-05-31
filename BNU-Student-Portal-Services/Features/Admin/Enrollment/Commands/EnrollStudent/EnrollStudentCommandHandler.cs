@@ -1,51 +1,13 @@
 // FILE: Features/Admin/Enrollment/Commands/EnrollStudent/EnrollStudentCommandHandler.cs
 // PURPOSE: Creates a StudentSectionEnrollment + blank CourseGrade in one transaction.
-//          This is the minimal setup required before any Grades endpoint can be tested.
 //
 // IMPLEMENTATION FLOW:
-// 1) Validate Student and CourseSection exist.
-// 2) Prevent duplicate enrollment for same student/section.
-// 3) Create StudentSectionEnrollment.
-// 4) Create CourseGrade with default values (scores zero, unpublished).
-// 5) Save once and return both IDs.
-//
-// DETAILED FLOW DIAGRAM:
-//
-//   [Admin Request: Enroll Student]
-//            |
-//            v
-//   +----------------------+      +-----------------------------------------+
-//   | Validate Identities  | <--- | 1. Does Student exist?                  |
-//   | (FK Verification)    |      | 2. Does CourseSection exist?            |
-//   +----------------------+      +-----------------------------------------+
-//            |
-//            v
-//   +----------------------+      +-----------------------------------------+
-//   | Uniqueness Check     | <--- | SELECT * FROM Enrollments               |
-//   | (Duplicate Guard)    |      | WHERE StudentId=@S AND SectionId=@Sec   |
-//   +----------------------+      +-----------------------------------------+
-//            |
-//            +---> [Exists?] --- (YES) --> [400 Validation Error]
-//            |
-//            v
-//   +----------------------+      +-----------------------------------------+
-//   | Create Enrollment    | ---| INSERT INTO StudentSectionEnrollments    |
-//   | Row                  |      | (Links student to a specific section)   |
-//   +----------------------+      +-----------------------------------------+
-//            |
-//            v
-//   +----------------------+      +-----------------------------------------+
-//   | Create Grade Record  | ---| INSERT INTO CourseGrades                |
-//   | (Default State)      |      | (Placeholder for midterm/final/etc)     |
-//   +----------------------+      +-----------------------------------------+
-//            |
-//            v
-//   +----------------------+
-//   | SQL Database Commit  | <-- Atomic Save (Both rows or nothing)
-//   +----------------------+
-//            |
-//            v
-//   [200 OK: Enrollment Complete]
+// 1) Resolve Student by AppUserId (NOT Student.Id PK). Return 404 if not found.
+// 2) Validate CourseSection exists.
+// 3) Prevent duplicate enrollment for same student/section.
+// 4) Create StudentSectionEnrollment.
+// 5) Create CourseGrade with default values (scores zero, unpublished).
+// 6) Save atomically and return both IDs.
 
 using BNU_Student_Portal_Domain.Entities.Auth;
 using BNU_Student_Portal_Domain.Entities.Courses;
@@ -63,35 +25,41 @@ public class EnrollStudentCommandHandler(IUnitOfWork _uow)
     public async Task<Result<EnrollmentResult>> Handle(
         EnrollStudentCommand request, CancellationToken ct)
     {
+        // 1) Resolve Student by AppUserId (not PK)
         var students = await _uow.GetRepository<Student, Guid>().GetAllAsync();
-        if (!students.Any(s => s.Id == request.StudentId))
+        var student  = students.FirstOrDefault(s => s.AppUserId == request.StudentAppUserId);
+        if (student is null)
             return Result<EnrollmentResult>.Fail(
                 Error.NotFound("Enrollment.StudentNotFound",
-                    $"Student {request.StudentId} not found."));
+                    $"Student with AppUserId '{request.StudentAppUserId}' not found."));
 
+        // 2) Validate CourseSection
         var sections = await _uow.GetRepository<BNU_Student_Portal_Domain.Entities.Courses.CourseSection, Guid>().GetAllAsync();
         if (!sections.Any(s => s.Id == request.CourseSectionId))
             return Result<EnrollmentResult>.Fail(
                 Error.NotFound("Enrollment.SectionNotFound",
                     $"CourseSection {request.CourseSectionId} not found."));
 
+        // 3) Duplicate guard
         var enrollments = await _uow.GetRepository<StudentSectionEnrollment, Guid>().GetAllAsync();
         if (enrollments.Any(e =>
-            e.StudentId       == request.StudentId &&
+            e.StudentId       == student.Id &&
             e.CourseSectionId == request.CourseSectionId))
             return Result<EnrollmentResult>.Fail(
                 Error.Validation("Enrollment.Duplicate",
                     "Student is already enrolled in this section."));
 
+        // 4) Create enrollment
         var enrollment = new StudentSectionEnrollment
         {
             Id              = Guid.NewGuid(),
-            StudentId       = request.StudentId,
+            StudentId       = student.Id,
             CourseSectionId = request.CourseSectionId,
             EnrolledAt      = DateTime.UtcNow
         };
         await _uow.GetRepository<StudentSectionEnrollment, Guid>().AddAsync(enrollment);
 
+        // 5) Create blank grade row
         var grade = new CourseGrade
         {
             Id                 = Guid.NewGuid(),
@@ -102,6 +70,7 @@ public class EnrollStudentCommandHandler(IUnitOfWork _uow)
         };
         await _uow.GetRepository<CourseGrade, Guid>().AddAsync(grade);
 
+        // 6) Atomic save
         await _uow.SaveChangesAsync();
 
         return Result<EnrollmentResult>.Ok(new EnrollmentResult(enrollment.Id, grade.Id));
