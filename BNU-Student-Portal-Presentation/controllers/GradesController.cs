@@ -256,13 +256,13 @@ public class GradesController(ISender _sender) : ApiBaseController
     /// <summary>
     /// C6 — TA creates a new Quiz for their section.
     /// Seeds one QuizGrade (Score=0) per enrolled student automatically.
-    /// Response includes QuizId + list of { StudentName, CourseGradeId, QuizGradeId }
+    /// Response includes QuizId + list of { CourseGradeId, QuizGradeId }
     /// — use these QuizGradeIds in C5 to enter actual scores.
     /// Body: { sectionId, title, maxScore }
     /// </summary>
     [HttpPost("ta/quizzes")]
     [Authorize(Roles = "TeachingAssistant")]
-    public async Task<IActionResult> CreateQuiz([FromBody] CreateQuizRequest request)
+    public async Task<ActionResult> CreateQuiz([FromBody] CreateQuizRequest request)
     {
         var callerId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         var command  = new CreateQuizCommand(
@@ -277,13 +277,13 @@ public class GradesController(ISender _sender) : ApiBaseController
     /// <summary>
     /// C7 — TA creates a new Discussion for their section.
     /// Seeds one DiscussionGrade (Score=0) per enrolled student automatically.
-    /// Response includes DiscussionId + list of { StudentName, CourseGradeId, DiscussionGradeId }
+    /// Response includes DiscussionId + list of { CourseGradeId, DiscussionGradeId }
     /// — use these DiscussionGradeIds in C5 to enter actual scores.
     /// Body: { sectionId, title, maxScore }
     /// </summary>
     [HttpPost("ta/discussions")]
     [Authorize(Roles = "TeachingAssistant")]
-    public async Task<IActionResult> CreateDiscussion([FromBody] CreateDiscussionRequest request)
+    public async Task<ActionResult> CreateDiscussion([FromBody] CreateDiscussionRequest request)
     {
         var callerId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         var command  = new CreateDiscussionCommand(
