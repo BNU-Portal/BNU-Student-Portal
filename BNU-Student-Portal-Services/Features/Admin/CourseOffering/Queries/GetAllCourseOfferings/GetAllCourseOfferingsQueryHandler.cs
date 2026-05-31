@@ -58,7 +58,7 @@ public class GetAllCourseOfferingsQueryHandler(
         GetAllCourseOfferingsQuery request, CancellationToken ct)
     {
         var offerings  = await _uow.GetRepository<BNU_Student_Portal_Domain.Entities.Courses.CourseOffering, Guid>().GetAllAsync();
-        var courses    = await _uow.GetRepository<Course, Guid>().GetAllAsync();
+        var courses    = await _uow.GetRepository<BNU_Student_Portal_Domain.Entities.Courses.Course, Guid>().GetAllAsync();
         var semesters  = await _uow.GetRepository<BNU_Student_Portal_Domain.Entities.Semesters.Semester, Guid>().GetAllAsync();
         var professors = await _uow.GetRepository<Professor, Guid>().GetAllAsync();
 

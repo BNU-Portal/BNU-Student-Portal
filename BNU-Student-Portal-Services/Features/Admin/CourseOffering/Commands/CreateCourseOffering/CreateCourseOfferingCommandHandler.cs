@@ -55,7 +55,7 @@ public class CreateCourseOfferingCommandHandler(IUnitOfWork _uow)
     public async Task<Result<Guid>> Handle(
         CreateCourseOfferingCommand request, CancellationToken ct)
     {
-        var courses = await _uow.GetRepository<Course, Guid>().GetAllAsync();
+        var courses = await _uow.GetRepository<BNU_Student_Portal_Domain.Entities.Courses.Course, Guid>().GetAllAsync();
         if (!courses.Any(c => c.Id == request.CourseId))
             return Result<Guid>.Fail(
                 Error.NotFound("CourseOffering.CourseNotFound", $"Course {request.CourseId} not found."));
