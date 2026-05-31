@@ -4,6 +4,7 @@ using BNU_Student_Portal_Services.Features.Grades.Professor.Commands.EnterGrade;
 using BNU_Student_Portal_Services.Features.Grades.Professor.Commands.PublishGrades;
 using BNU_Student_Portal_Services.Features.Grades.Professor.Commands.UnpublishGrade;
 using BNU_Student_Portal_Services.Features.Grades.Professor.Queries;
+using BNU_Student_Portal_Services.Features.Grades.Student.CourseDetail.Queries;
 using BNU_Student_Portal_Services.Features.Grades.Student.GradesPerSemester.Queries;
 using BNU_Student_Portal_Services.Features.Grades.Student.SemesterTab.Queries;
 using BNU_Student_Portal_Services.Features.Grades.TA.Commands.CreateDiscussion;
@@ -58,6 +59,7 @@ public class GradesController(ISender _sender) : ApiBaseController
     // STUDENT ENDPOINTS
     // ════════════════════════════════════════════════════════════════════
 
+    // Q1 — list of semesters the student has enrollments in
     [HttpGet("student/semesters")]
     [Authorize(Roles = "Student")]
     public async Task<IActionResult> GetStudentSemesterTabs()
@@ -67,12 +69,23 @@ public class GradesController(ISender _sender) : ApiBaseController
         return HandleResult(result);
     }
 
+    // Q2 — all courses + aggregated breakdown for one semester
     [HttpGet("student/semesters/{semesterId:guid}")]
     [Authorize(Roles = "Student")]
     public async Task<IActionResult> GetStudentGradesBySemester(Guid semesterId)
     {
         var callerId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         var result   = await _sender.Send(new GetStudentGradesBySemesterQuery(callerId, semesterId));
+        return HandleResult(result);
+    }
+
+    // Q3 — drill-down: every individual quiz + discussion with score & note
+    [HttpGet("student/courses/{courseGradeId:guid}")]
+    [Authorize(Roles = "Student")]
+    public async Task<IActionResult> GetCourseGradeDetail(Guid courseGradeId)
+    {
+        var callerId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var result   = await _sender.Send(new GetCourseGradeDetailQuery(callerId, courseGradeId));
         return HandleResult(result);
     }
 
@@ -194,7 +207,7 @@ public class GradesController(ISender _sender) : ApiBaseController
             request.Title,
             request.MaxScore);
         var result = await _sender.Send(command);
-        return HandleResult(result);   // result is Result<CreateQuizResponse> → generic overload ✓
+        return HandleResult(result);
     }
 
     // C7 — returns Result<CreateDiscussionResponse> so HandleResult<T> picks up the body
@@ -208,7 +221,7 @@ public class GradesController(ISender _sender) : ApiBaseController
             request.SectionId,
             request.Title,
             request.MaxScore);
-        var result = await _sender.Send(command);  // result is Result<CreateDiscussionResponse> → generic overload ✓
+        var result = await _sender.Send(command);
         return HandleResult(result);
     }
 }
