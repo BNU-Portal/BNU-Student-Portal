@@ -2,38 +2,36 @@
 // PURPOSE: Admin-only endpoints to set up test data for the Grades feature.
 //
 // ROUTE DESIGN:
-//   POST   /api/admin/semesters                     -> Create semester
-//   GET    /api/admin/semesters                     -> List all semesters
-//   GET    /api/admin/semesters/active              -> Get active semester
-//   PUT    /api/admin/semesters/{id}/activate       -> Activate a semester
-//   POST   /api/admin/course-offerings              -> Create course offering
-//   GET    /api/admin/course-offerings              -> List all course offerings
-//   POST   /api/admin/course-sections               -> Create section under offering
-//   POST   /api/admin/enrollments                   -> Enroll student in section
+//   POST   /api/admin/courses                        -> Create course
+//   GET    /api/admin/courses                        -> List all courses
+//   POST   /api/admin/semesters                      -> Create semester
+//   GET    /api/admin/semesters                      -> List all semesters
+//   GET    /api/admin/semesters/active               -> Get active semester
+//   PUT    /api/admin/semesters/{id}/activate        -> Activate a semester
+//   POST   /api/admin/course-offerings               -> Create course offering
+//   GET    /api/admin/course-offerings               -> List all course offerings
+//   POST   /api/admin/course-sections                -> Create section under offering
+//   POST   /api/admin/enrollments                    -> Enroll student in section
 
 // SETUP FLOW (recommended order for Grades data):
-// 1) CreateSemester      -> returns SemesterId
-// 2) ActivateSemester    -> marks current semester (only one active)
-// 3) CreateCourseOffering-> returns CourseOfferingId (Course + Semester + Professor)
-// 4) CreateCourseSection -> returns CourseSectionId (TA assigned, SemesterId copied)
-// 5) EnrollStudent       -> returns EnrollmentId + CourseGradeId (blank grade row)
+// 1) CreateCourse         -> returns CourseId
+// 2) CreateSemester       -> returns SemesterId
+// 3) ActivateSemester     -> marks current semester (only one active)
+// 4) CreateCourseOffering -> returns CourseOfferingId (Course + Semester + Professor)
+// 5) CreateCourseSection  -> returns CourseSectionId (TA assigned, SemesterId copied)
+// 6) EnrollStudent        -> returns EnrollmentId + CourseGradeId (blank grade row)
 //
 // DATA CHAIN (IDs that flow forward):
+// Course.Id
+//   -> CourseOffering.CourseId
 // Semester.Id
 //   -> CourseOffering.SemesterId
 //       -> CourseSection.CourseOfferingId + SemesterId (copied)
 //           -> StudentSectionEnrollment.CourseSectionId
 //               -> CourseGrade.EnrollmentId
-//
-// REQUEST/RESPONSE FLOW (per endpoint):
-// [Admin Client] -> [AdminController] -> [MediatR] -> [Feature Handler] -> [UoW/Repo] -> [DB]
-//       ^----------------------------------------------------------------------------------|
-//       Result<T> bubbles back (success or Error.*)
-//
-// ERROR PATTERN (typical):
-// - 404 NotFound when a referenced FK does not exist (CourseId, SemesterId, etc.)
-// - 400 Validation for duplicate combinations or invalid date ranges
 
+using BNU_Student_Portal_Services.Features.Admin.Course.Commands.CreateCourse;
+using BNU_Student_Portal_Services.Features.Admin.Course.Queries.GetAllCourses;
 using BNU_Student_Portal_Services.Features.Admin.CourseOffering.Commands.CreateCourseOffering;
 using BNU_Student_Portal_Services.Features.Admin.CourseOffering.Queries.GetAllCourseOfferings;
 using BNU_Student_Portal_Services.Features.Admin.CourseSection.Commands.CreateCourseSection;
@@ -53,6 +51,32 @@ namespace BNU_Student_Portal_Presentation.Controllers;
 [Authorize(Roles = "Admin,SuperAdmin")]
 public class AdminController(ISender _sender) : ApiBaseController
 {
+    // ================================================================
+    // COURSE
+    // ================================================================
+
+    /// <summary>
+    /// Creates a new course in the catalogue.
+    /// Returns the CourseId — use it when calling POST /api/admin/course-offerings.
+    /// </summary>
+    [HttpPost("courses")]
+    public async Task<IActionResult> CreateCourse([FromBody] CreateCourseCommand command)
+    {
+        var result = await _sender.Send(command);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Returns all courses ordered by Code ascending.
+    /// Use the returned Id when creating a CourseOffering.
+    /// </summary>
+    [HttpGet("courses")]
+    public async Task<IActionResult> GetAllCourses()
+    {
+        var result = await _sender.Send(new GetAllCoursesQuery());
+        return HandleResult(result);
+    }
+
     // ================================================================
     // SEMESTER
     // ================================================================
